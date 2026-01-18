@@ -1,0 +1,50 @@
+# Visual Studio / .NET
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build outputs
+bin/
+obj/
+Debug/
+Release/
+
+# Rider
+.idea/
+
+# VS Code
+.vscode/
+
+# NuGet
+*.nupkg
+project.lock.json
+artifacts/
+
+# Runtime files
+*.dll
+*.exe
+*.pdb
+*.deps.json
+*.runtimeconfig.json
+
+# OS generated files
+Thumbs.db
+.DS_Store
+
+# OneDrive
+~$*
+
+# Test results
+TestResults/
+
+# Coverage
+coverage*/
+
+# Logs
+*.log
+
+# Resharper
+_ReSharper*/
+*.DotSettings.user

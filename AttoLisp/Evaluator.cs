@@ -1,0 +1,705 @@
+namespace AttoLisp
+{
+    public class Environment
+    {
+        private readonly Dictionary<string, LispValue> _bindings;
+        private readonly Environment? _parent;
+
+        public Environment(Environment? parent = null)
+        {
+            _bindings = new Dictionary<string, LispValue>();
+            _parent = parent;
+        }
+
+        public void Define(string name, LispValue value)
+        {
+            _bindings[name] = value;
+        }
+
+        public LispValue? Lookup(string name)
+        {
+            if (_bindings.TryGetValue(name, out var value))
+                return value;
+
+            return _parent?.Lookup(name);
+        }
+
+        public void Set(string name, LispValue value)
+        {
+            if (_bindings.ContainsKey(name))
+            {
+                _bindings[name] = value;
+                return;
+            }
+
+            if (_parent != null)
+            {
+                _parent.Set(name, value);
+                return;
+            }
+
+            throw new Exception($"Undefined variable: {name}");
+        }
+    }
+
+    public class Evaluator
+    {
+        private readonly Environment _globalEnv;
+
+        public Evaluator()
+        {
+            _globalEnv = new Environment();
+            InitializeGlobalEnvironment();
+        }
+
+        private void InitializeGlobalEnvironment()
+        {
+            // Boolean literals
+            _globalEnv.Define("t", LispBoolean.True);
+            _globalEnv.Define("nil", LispBoolean.False);
+
+            // Arithmetic operations supporting integers (BigInteger) and decimals
+            _globalEnv.Define("+", new LispFunction("+", args =>
+            {
+                bool anyDecimal = args.Any(a => a is LispDecimal);
+                if (!args.Any()) return anyDecimal ? new LispDecimal(0m) : new LispInteger(System.Numerics.BigInteger.Zero);
+                if (anyDecimal)
+                {
+                    decimal sum = 0m;
+                    foreach (var arg in args)
+                    {
+                        sum += ToDecimal(arg);
+                    }
+                    return new LispDecimal(sum);
+                }
+                else
+                {
+                    System.Numerics.BigInteger sum = System.Numerics.BigInteger.Zero;
+                    foreach (var arg in args)
+                    {
+                        sum += ToBigInt(arg);
+                    }
+                    return new LispInteger(sum);
+                }
+            }));
+
+            _globalEnv.Define("-", new LispFunction("-", args =>
+            {
+                if (args.Count == 0)
+                    throw new Exception("- requires at least one argument");
+
+                bool anyDecimal = args.Any(a => a is LispDecimal);
+                if (args.Count == 1)
+                {
+                    return anyDecimal ? new LispDecimal(-ToDecimal(args[0])) : new LispInteger(-ToBigInt(args[0]));
+                }
+
+                if (anyDecimal)
+                {
+                    decimal result = ToDecimal(args[0]);
+                    for (int i = 1; i < args.Count; i++) result -= ToDecimal(args[i]);
+                    return new LispDecimal(result);
+                }
+                else
+                {
+                    var result = ToBigInt(args[0]);
+                    for (int i = 1; i < args.Count; i++) result -= ToBigInt(args[i]);
+                    return new LispInteger(result);
+                }
+            }));
+
+            _globalEnv.Define("*", new LispFunction("*", args =>
+            {
+                bool anyDecimal = args.Any(a => a is LispDecimal);
+                if (anyDecimal)
+                {
+                    decimal product = 1m;
+                    foreach (var arg in args) product *= ToDecimal(arg);
+                    return new LispDecimal(product);
+                }
+                else
+                {
+                    System.Numerics.BigInteger product = System.Numerics.BigInteger.One;
+                    if (!args.Any()) return new LispInteger(product);
+                    foreach (var arg in args) product *= ToBigInt(arg);
+                    return new LispInteger(product);
+                }
+            }));
+
+            _globalEnv.Define("/", new LispFunction("/", args =>
+            {
+                if (args.Count == 0)
+                    throw new Exception("/ requires at least one argument");
+
+                decimal result = ToDecimal(args[0]);
+                if (args.Count == 1)
+                {
+                    if (result == 0m) throw new Exception("Division by zero");
+                    return new LispDecimal(1m / result);
+                }
+                for (int i = 1; i < args.Count; i++)
+                {
+                    var d = ToDecimal(args[i]);
+                    if (d == 0m) throw new Exception("Division by zero");
+                    result /= d;
+                }
+                return new LispDecimal(result);
+            }));
+
+            // Comparison operations
+            _globalEnv.Define("=", new LispFunction("=", args =>
+            {
+                if (args.Count < 2)
+                    throw new Exception("= requires at least two arguments");
+
+                for (int i = 1; i < args.Count; i++)
+                {
+                    if (!AreEqual(args[0], args[i]))
+                        return LispBoolean.False;
+                }
+                return LispBoolean.True;
+            }));
+
+            _globalEnv.Define("<", new LispFunction("<", args =>
+            {
+                if (args.Count < 2)
+                    throw new Exception("< requires at least two arguments");
+
+                for (int i = 1; i < args.Count; i++)
+                {
+                    if (!IsLessThan(args[i - 1], args[i]))
+                        return LispBoolean.False;
+                }
+                return LispBoolean.True;
+            }));
+
+            _globalEnv.Define(">", new LispFunction(">", args =>
+            {
+                if (args.Count < 2)
+                    throw new Exception("> requires at least two arguments");
+
+                for (int i = 1; i < args.Count; i++)
+                {
+                    if (!IsLessThan(args[i], args[i - 1]))
+                        return LispBoolean.False;
+                }
+                return LispBoolean.True;
+            }));
+
+            // String operations
+            _globalEnv.Define("concat", new LispFunction("concat", args =>
+            {
+                var result = string.Concat(args.Select(a =>
+                {
+                    if (a is LispString str)
+                        return str.Value;
+                    return a.ToString();
+                }));
+                return new LispString(result);
+            }));
+
+            _globalEnv.Define("str-length", new LispFunction("str-length", args =>
+            {
+                if (args.Count != 1 || args[0] is not LispString str)
+                    throw new Exception("str-length expects a single string argument");
+                return new LispInteger(new System.Numerics.BigInteger(str.Value.Length));
+            }));
+
+            // Additional string operations
+            _globalEnv.Define("substr", new LispFunction("substr", args =>
+            {
+                if (args.Count != 3 || args[0] is not LispString s)
+                    throw new Exception("substr expects (string start length)");
+                var i = ToInt32(args[1]);
+                var len = ToInt32(args[2]);
+                if (i < 0 || len < 0 || i > s.Value.Length) return new LispString("");
+                var maxLen = Math.Min(len, s.Value.Length - i);
+                return new LispString(s.Value.Substring(i, maxLen));
+            }));
+
+            _globalEnv.Define("index-of", new LispFunction("index-of", args =>
+            {
+                if (args.Count != 2 || args[0] is not LispString s || args[1] is not LispString n)
+                    throw new Exception("index-of expects (string needle)");
+                var idx = s.Value.IndexOf(n.Value, StringComparison.Ordinal);
+                return new LispInteger(new System.Numerics.BigInteger(idx));
+            }));
+
+            _globalEnv.Define("to-lower", new LispFunction("to-lower", args =>
+            {
+                if (args.Count != 1 || args[0] is not LispString s)
+                    throw new Exception("to-lower expects a single string argument");
+                return new LispString(s.Value.ToLowerInvariant());
+            }));
+
+            // Date operations
+            _globalEnv.Define("now", new LispFunction("now", args =>
+            {
+                if (args.Count != 0)
+                    throw new Exception("now expects no arguments");
+                return new LispDate(DateTime.Now);
+            }));
+
+            _globalEnv.Define("date-year", new LispFunction("date-year", args =>
+            {
+                if (args.Count != 1 || args[0] is not LispDate date)
+                    throw new Exception("date-year expects a single date argument");
+                return new LispInteger(new System.Numerics.BigInteger(date.Value.Year));
+            }));
+
+            _globalEnv.Define("date-month", new LispFunction("date-month", args =>
+            {
+                if (args.Count != 1 || args[0] is not LispDate date)
+                    throw new Exception("date-month expects a single date argument");
+                return new LispInteger(new System.Numerics.BigInteger(date.Value.Month));
+            }));
+
+            _globalEnv.Define("date-day", new LispFunction("date-day", args =>
+            {
+                if (args.Count != 1 || args[0] is not LispDate date)
+                    throw new Exception("date-day expects a single date argument");
+                return new LispInteger(new System.Numerics.BigInteger(date.Value.Day));
+            }));
+
+            // List operations
+            _globalEnv.Define("list", new LispFunction("list", args =>
+            {
+                return new LispList(new List<LispValue>(args));
+            }));
+
+            _globalEnv.Define("car", new LispFunction("car", args =>
+            {
+                if (args.Count != 1 || args[0] is not LispList list)
+                    throw new Exception("car expects a single list argument");
+                if (list.Elements.Count == 0)
+                    return LispNil.Instance;
+                return list.Elements[0];
+            }));
+
+            _globalEnv.Define("cdr", new LispFunction("cdr", args =>
+            {
+                if (args.Count != 1 || args[0] is not LispList list)
+                    throw new Exception("cdr expects a single list argument");
+                if (list.Elements.Count == 0)
+                    return LispNil.Instance;
+                return new LispList(list.Elements.Skip(1).ToList());
+            }));
+
+            _globalEnv.Define("cons", new LispFunction("cons", args =>
+            {
+                if (args.Count != 2)
+                    throw new Exception("cons expects exactly two arguments");
+                
+                if (args[1] is LispList list)
+                {
+                    var newElements = new List<LispValue> { args[0] };
+                    newElements.AddRange(list.Elements);
+                    return new LispList(newElements);
+                }
+                return new LispList(new List<LispValue> { args[0], args[1] });
+            }));
+
+            // Empty? predicate
+            _globalEnv.Define("empty?", new LispFunction("empty?", args =>
+            {
+                if (args.Count != 1)
+                    throw new Exception("empty? expects exactly one argument");
+                var x = args[0];
+                if (x is LispNil)
+                    return LispBoolean.True;
+                if (x is LispList lst)
+                    return lst.Elements.Count == 0 ? LispBoolean.True : LispBoolean.False;
+                return LispBoolean.False;
+            }));
+
+            // Special forms and utility
+            _globalEnv.Define("print", new LispFunction("print", args =>
+            {
+                foreach (var arg in args)
+                {
+                    Console.Write(arg.ToString());
+                }
+                Console.WriteLine();
+                return LispNil.Instance;
+            }));
+
+            // Logical operations
+            _globalEnv.Define("not", new LispFunction("not", args =>
+            {
+                if (args.Count != 1) throw new Exception("not expects exactly one argument");
+                return IsTruthy(args[0]) ? LispBoolean.False : LispBoolean.True;
+            }));
+            _globalEnv.Define("and", new LispFunction("and", args =>
+            {
+                if (args.Count != 2) throw new Exception("and expects exactly two arguments");
+                return (IsTruthy(args[0]) && IsTruthy(args[1])) ? LispBoolean.True : LispBoolean.False;
+            }));
+            _globalEnv.Define("or", new LispFunction("or", args =>
+            {
+                if (args.Count != 2) throw new Exception("or expects exactly two arguments");
+                return (IsTruthy(args[0]) || IsTruthy(args[1])) ? LispBoolean.True : LispBoolean.False;
+            }));
+            _globalEnv.Define("xor", new LispFunction("xor", args =>
+            {
+                if (args.Count != 2) throw new Exception("xor expects exactly two arguments");
+                return (IsTruthy(args[0]) ^ IsTruthy(args[1])) ? LispBoolean.True : LispBoolean.False;
+            }));
+        }
+
+        private bool AreEqual(LispValue a, LispValue b)
+        {
+            if (a is LispInteger ia && b is LispInteger ib)
+                return ia.Value == ib.Value;
+
+            if (a is LispDecimal da && b is LispDecimal db)
+                return da.Value == db.Value;
+
+            if (a is LispInteger i2 && b is LispDecimal d2) return (decimal)i2.Value == d2.Value;
+            if (a is LispDecimal d3 && b is LispInteger i3) return d3.Value == (decimal)i3.Value;
+            
+            if (a is LispString strA && b is LispString strB)
+                return strA.Value == strB.Value;
+            
+            if (a is LispDate dateA && b is LispDate dateB)
+                return dateA.Value == dateB.Value;
+            
+            if (a is LispSymbol symA && b is LispSymbol symB)
+                return symA.Name == symB.Name;
+
+            return a == b;
+        }
+
+        private static bool IsTruthy(LispValue v)
+        {
+            if (v is LispBoolean b) return b.Value;
+            if (v is LispNil) return false;
+            return true;
+        }
+
+        private bool IsLessThan(LispValue a, LispValue b)
+        {
+            // Treat nil as minimal value to avoid errors in list-processing predicates
+            if (a is LispNil && b is LispNil) return false;
+            if (a is LispNil)
+            {
+                // nil < anything else
+                return true;
+            }
+            if (b is LispNil)
+            {
+                // anything else !< nil
+                return false;
+            }
+            if (a is LispInteger ia && b is LispInteger ib)
+                return ia.Value < ib.Value;
+
+            if (a is LispDecimal da && b is LispDecimal db)
+                return da.Value < db.Value;
+
+            if (a is LispInteger i2 && b is LispDecimal d2) return (decimal)i2.Value < d2.Value;
+            if (a is LispDecimal d3 && b is LispInteger i3) return d3.Value < (decimal)i3.Value;
+            
+            if (a is LispString strA && b is LispString strB)
+                return string.Compare(strA.Value, strB.Value) < 0;
+            
+            if (a is LispDate dateA && b is LispDate dateB)
+                return dateA.Value < dateB.Value;
+
+            throw new Exception($"Cannot compare {a.GetType().Name} and {b.GetType().Name}");
+        }
+
+        private static System.Numerics.BigInteger ToBigInt(LispValue v)
+        {
+            return v switch
+            {
+                LispNil => System.Numerics.BigInteger.Zero,
+                LispInteger li => li.Value,
+                LispDecimal ld => new System.Numerics.BigInteger(ld.Value),
+                _ => throw new Exception($"Expected number, got {v.GetType().Name}")
+            };
+        }
+
+        private static decimal ToDecimal(LispValue v)
+        {
+            return v switch
+            {
+                LispNil => 0m,
+                LispDecimal ld => ld.Value,
+                LispInteger li => (decimal)li.Value,
+                _ => throw new Exception($"Expected number, got {v.GetType().Name}")
+            };
+        }
+
+        private static int ToInt32(LispValue v)
+        {
+            return v switch
+            {
+                LispInteger li => (int)li.Value,
+                LispDecimal ld => (int)ld.Value,
+                _ => throw new Exception($"Expected number, got {v.GetType().Name}")
+            };
+        }
+
+        public LispValue Eval(LispValue expr, Environment? env = null)
+        {
+            env ??= _globalEnv;
+
+            return expr switch
+            {
+                LispInteger or LispDecimal or LispString or LispDate or LispBoolean => expr,
+                LispNil => expr,
+                LispSymbol symbol => EvalSymbol(symbol, env),
+                LispList list => EvalList(list, env),
+                _ => throw new Exception($"Cannot evaluate {expr.GetType().Name}")
+            };
+        }
+
+        private LispValue EvalSymbol(LispSymbol symbol, Environment env)
+        {
+            var value = env.Lookup(symbol.Name);
+            if (value == null)
+                throw new Exception($"Undefined symbol: {symbol.Name}");
+            return value;
+        }
+
+        private LispValue EvalList(LispList list, Environment env)
+        {
+            if (list.Elements.Count == 0)
+                return list;
+
+            var first = list.Elements[0];
+
+            // Handle special forms
+            if (first is LispSymbol symbol)
+            {
+                switch (symbol.Name)
+                {
+                    case "quote":
+                        if (list.Elements.Count != 2)
+                            throw new Exception("quote expects exactly one argument");
+                        return list.Elements[1];
+
+                    case "if":
+                        return EvalIf(list, env);
+
+                    case "define":
+                        return EvalDefine(list, env);
+
+                    case "set!":
+                        return EvalSet(list, env);
+
+                    case "lambda":
+                        return EvalLambda(list, env);
+
+                    case "cond":
+                        return EvalCond(list, env);
+                }
+            }
+
+            // Function application
+            var func = Eval(first, env);
+            if (func is not LispFunction function)
+                throw new Exception($"Cannot call {func.GetType().Name} as a function");
+
+            var args = list.Elements.Skip(1).Select(e => Eval(e, env)).ToList();
+            return function.Implementation(args);
+        }
+
+        private LispValue EvalIf(LispList list, Environment env)
+        {
+            if (list.Elements.Count < 3 || list.Elements.Count > 4)
+                throw new Exception("if expects 2 or 3 arguments: (if condition then-expr [else-expr])");
+
+            var condition = Eval(list.Elements[1], env);
+            bool isTrue = IsTruthy(condition);
+
+            if (isTrue)
+                return Eval(list.Elements[2], env);
+            else if (list.Elements.Count == 4)
+                return Eval(list.Elements[3], env);
+            else
+                return LispNil.Instance;
+        }
+
+        private LispValue EvalDefine(LispList list, Environment env)
+        {
+            // Support variable define: (define name value)
+            // And function define sugar:
+            // 1) (define name (arg1 arg2 ...) body...)
+            // 2) (define (name arg1 arg2 ...) body...)
+
+            if (list.Elements.Count < 3)
+                throw new Exception("define expects at least 2 arguments");
+
+            // Case 2: (define (name args...) body...)
+            if (list.Elements[1] is LispList nameAndParams && nameAndParams.Elements.Count > 0 && nameAndParams.Elements[0] is LispSymbol nameSymbol)
+            {
+                var paramNames = new List<string>();
+                for (int i = 1; i < nameAndParams.Elements.Count; i++)
+                {
+                    if (nameAndParams.Elements[i] is not LispSymbol p)
+                        throw new Exception("define function parameters must be symbols");
+                    paramNames.Add(p.Name);
+                }
+
+                var body = list.Elements.Skip(2).ToList();
+                var fn = new LispFunction(nameSymbol.Name, args =>
+                {
+                    if (args.Count != paramNames.Count)
+                        throw new Exception($"{nameSymbol.Name} expects {paramNames.Count} arguments, got {args.Count}");
+
+                    var localEnv = new Environment(env);
+                    for (int i = 0; i < paramNames.Count; i++)
+                        localEnv.Define(paramNames[i], args[i]);
+
+                    LispValue result = LispNil.Instance;
+                    foreach (var expr in body)
+                        result = Eval(expr, localEnv);
+                    return result;
+                });
+                env.Define(nameSymbol.Name, fn);
+                return fn;
+            }
+
+            // Case 1: (define name (args...) body...)
+            // Only treat as sugar if the second element is a list of symbols (parameters),
+            // not an expression like (lambda ...)
+            if (list.Elements[1] is LispSymbol symbol && list.Elements[2] is LispList paramListForSugar && paramListForSugar.Elements.All(e => e is LispSymbol) && list.Elements.Count > 3)
+            {
+                var paramNames = new List<string>();
+                foreach (var p in paramListForSugar.Elements)
+                {
+                    if (p is not LispSymbol ps)
+                        throw new Exception("define function parameters must be symbols");
+                    paramNames.Add(ps.Name);
+                }
+
+                var body = list.Elements.Skip(3).ToList();
+                if (body.Count == 0)
+                    throw new Exception("define function form requires a body");
+
+                var fn = new LispFunction(symbol.Name, args =>
+                {
+                    if (args.Count != paramNames.Count)
+                        throw new Exception($"{symbol.Name} expects {paramNames.Count} arguments, got {args.Count}");
+
+                    var localEnv = new Environment(env);
+                    for (int i = 0; i < paramNames.Count; i++)
+                        localEnv.Define(paramNames[i], args[i]);
+
+                    LispValue result = LispNil.Instance;
+                    foreach (var expr in body)
+                        result = Eval(expr, localEnv);
+                    return result;
+                });
+                env.Define(symbol.Name, fn);
+                return fn;
+            }
+
+            // Fallback: variable define (including define name (lambda ...) ...)
+            if (list.Elements[1] is not LispSymbol varSymbol)
+                throw new Exception("define expects a symbol as the first argument");
+
+            var value = Eval(list.Elements[2], env);
+            env.Define(varSymbol.Name, value);
+            return value;
+        }
+
+        private LispValue EvalSet(LispList list, Environment env)
+        {
+            if (list.Elements.Count != 3)
+                throw new Exception("set! expects exactly 2 arguments: (set! name value)");
+
+            if (list.Elements[1] is not LispSymbol symbol)
+                throw new Exception("set! expects a symbol as the first argument");
+
+            var value = Eval(list.Elements[2], env);
+            env.Set(symbol.Name, value);
+            return value;
+        }
+
+        private LispValue EvalLambda(LispList list, Environment env)
+        {
+            if (list.Elements.Count < 3)
+                throw new Exception("lambda expects at least 2 arguments: (lambda (params...) body...)");
+
+            if (list.Elements[1] is not LispList paramList)
+                throw new Exception("lambda expects a parameter list");
+
+            var paramNames = new List<string>();
+            foreach (var param in paramList.Elements)
+            {
+                if (param is not LispSymbol paramSymbol)
+                    throw new Exception("lambda parameters must be symbols");
+                paramNames.Add(paramSymbol.Name);
+            }
+
+            var body = list.Elements.Skip(2).ToList();
+
+            return new LispFunction("lambda", args =>
+            {
+                if (args.Count != paramNames.Count)
+                    throw new Exception($"lambda expects {paramNames.Count} arguments, got {args.Count}");
+
+                var localEnv = new Environment(env);
+                for (int i = 0; i < paramNames.Count; i++)
+                {
+                    localEnv.Define(paramNames[i], args[i]);
+                }
+
+                LispValue result = LispNil.Instance;
+                foreach (var expr in body)
+                {
+                    result = Eval(expr, localEnv);
+                }
+                return result;
+            });
+        }
+
+        private LispValue EvalCond(LispList list, Environment env)
+        {
+            // (cond (test1 expr1 expr2 ...) (test2 expr...) ... (else expr...))
+            if (list.Elements.Count < 2)
+                throw new Exception("cond expects at least one clause");
+
+            for (int i = 1; i < list.Elements.Count; i++)
+            {
+                if (list.Elements[i] is not LispList clause || clause.Elements.Count == 0)
+                    throw new Exception("cond clauses must be non-empty lists");
+
+                var first = clause.Elements[0];
+                bool selected;
+
+                if (first is LispSymbol sym && sym.Name == "else")
+                {
+                    // else must be the last clause by convention, but we'll just select it if reached
+                    selected = true;
+                }
+                else
+                {
+                    var testVal = Eval(first, env);
+                    selected = IsTruthy(testVal);
+                }
+                if (selected)
+                {
+                    // Evaluate clause expressions in order, return last value. If none, return test value.
+                    LispValue result = LispNil.Instance;
+                    if (clause.Elements.Count == 1)
+                    {
+                        // Only test provided; return its value
+                        result = Eval(first, env);
+                        return result;
+                    }
+
+                    for (int j = 1; j < clause.Elements.Count; j++)
+                    {
+                        result = Eval(clause.Elements[j], env);
+                    }
+                    return result;
+                }
+            }
+
+            return LispNil.Instance;
+        }
+    }
+}

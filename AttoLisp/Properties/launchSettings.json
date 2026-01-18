@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "AttoLisp": {
+      "commandName": "Project",
+      "commandLineArgs": " "
+    }
+  }
+}
