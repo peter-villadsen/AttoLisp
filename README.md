@@ -71,3 +71,11 @@ Notes
 ## License
 
 This project is licensed under the MIT License — see the `LICENSE` file for details.
+
+## CI status
+
+![CI](https://github.com/peter-villadsen/AttoLisp/actions/workflows/dotnet-test.yml/badge.svg)
+
+## Coverage
+
+[![codecov](https://codecov.io/gh/peter-villadsen/AttoLisp/branch/main/graph/badge.svg)](https://codecov.io/gh/peter-villadsen/AttoLisp)
