@@ -79,3 +79,9 @@ This project is licensed under the MIT License — see the `LICENSE` file for de
 ## Coverage
 
 [![codecov](https://codecov.io/gh/peter-villadsen/AttoLisp/branch/main/graph/badge.svg)](https://codecov.io/gh/peter-villadsen/AttoLisp)
+
+The workflow generates an HTML coverage report which is uploaded as an artifact on each run. To view the full HTML report:
+
+1. Open the repository on GitHub: https://github.com/peter-villadsen/AttoLisp
+2. Click the "Actions" tab and select the latest workflow run for the `.NET Tests` workflow.
+3. On the workflow run page, expand the "Artifacts" section and download the `coverage-report` artifact — it contains a browsable HTML coverage report.

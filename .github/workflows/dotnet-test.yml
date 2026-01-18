@@ -58,3 +58,17 @@ jobs:
         env:
           # Optional: set CODECOV_TOKEN in the repo secrets if private repo requires it
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Install reportgenerator
+        run: dotnet tool install -g dotnet-reportgenerator-globaltool --version 5.*
+
+      - name: Generate HTML coverage report
+        run: |
+          mkdir -p coverage/report
+          $HOME/.dotnet/tools/reportgenerator -reports:coverage/*.xml -targetdir:coverage/report -reporttypes:Html
+
+      - name: Upload HTML coverage report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/report
