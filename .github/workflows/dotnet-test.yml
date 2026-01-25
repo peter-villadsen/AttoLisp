@@ -29,14 +29,22 @@ jobs:
       - name: Build
         run: dotnet build --configuration Release --no-restore
 
-      - name: Run tests (collect coverage)
+      - name: Install coverlet.console
+        run: dotnet tool install -g coverlet.console
+
+      - name: Run tests (no coverage, just TRX)
+        run: |
+          dotnet test AttoLisp.Tests/AttoLisp.Tests.csproj --configuration Release --no-build \
+            --logger "trx;LogFileName=AttoLisp.Tests/TestResults/test_results.trx"
+
+      - name: Collect coverage with coverlet.console
         run: |
           mkdir -p coverage
-          dotnet test AttoLisp.Tests/AttoLisp.Tests.csproj --configuration Release --no-build \
-            --logger "trx;LogFileName=test_results.trx" \
-            /p:CollectCoverage=true \
-            /p:CoverletOutput=coverage/coverage.cobertura.xml \
-            /p:CoverletOutputFormat=cobertura
+          coverlet AttoLisp.Tests/bin/Release/net9.0/AttoLisp.Tests.dll \
+            -t "dotnet" \
+            -a "test" \
+            -o "coverage/coverage.cobertura.xml" \
+            -f "cobertura"
 
       - name: Upload test results & coverage artifacts
         uses: actions/upload-artifact@v4
