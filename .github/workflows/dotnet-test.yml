@@ -5,6 +5,11 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write
 
 jobs:
   build-and-test:
@@ -24,39 +29,47 @@ jobs:
       - name: Build
         run: dotnet build --configuration Release --no-restore
 
-      - name: Run tests (collect coverage)
+      - name: Install coverlet.console
+        run: dotnet tool install -g coverlet.console
+
+      - name: Run tests (no coverage, just TRX)
+        run: |
+          dotnet test AttoLisp.Tests/AttoLisp.Tests.csproj --configuration Release --no-build \
+            --logger "trx;LogFileName=AttoLisp.Tests/TestResults/test_results.trx"
+
+      - name: Collect coverage with coverlet.console
         run: |
           mkdir -p coverage
-          dotnet test AttoLisp.Tests/AttoLisp.Tests.csproj --configuration Release --no-build \
-            --logger "trx;LogFileName=test_results.trx" \
-            /p:CollectCoverage=true \
-            /p:CoverletOutput=coverage/ \
-            /p:CoverletOutputFormat=cobertura,opencover
+          coverlet AttoLisp.Tests/bin/Release/net9.0/AttoLisp.Tests.dll \
+            -t "dotnet" \
+            -a "test" \
+            -o "coverage/coverage.cobertura.xml" \
+            -f "cobertura"
 
       - name: Upload test results & coverage artifacts
         uses: actions/upload-artifact@v4
         with:
           name: test-artifacts
           path: |
-            test_results.trx
+            AttoLisp.Tests/TestResults/**/test_results.trx
             coverage/**
 
       - name: Publish test results with annotations
         uses: dorny/test-reporter@v1
         if: always()
+        continue-on-error: true
         with:
           name: dotnet-tests
-          path: test_results.trx
-          reporter: github-pr-check
+          path: AttoLisp.Tests/TestResults/**/test_results.trx
+          reporter: dotnet-trx
           fail-on-error: false
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
-          files: coverage/*.xml
+          files: coverage/coverage.cobertura.xml
           fail_ci_if_error: false
         env:
-          # Optional: set CODECOV_TOKEN in the repo secrets if private repo requires it
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Install reportgenerator
@@ -65,7 +78,10 @@ jobs:
       - name: Generate HTML coverage report
         run: |
           mkdir -p coverage/report
-          $HOME/.dotnet/tools/reportgenerator -reports:coverage/*.xml -targetdir:coverage/report -reporttypes:Html
+          $HOME/.dotnet/tools/reportgenerator \
+            -reports:coverage/coverage.cobertura.xml \
+            -targetdir:coverage/report \
+            -reporttypes:Html
 
       - name: Upload HTML coverage report artifact
         uses: actions/upload-artifact@v4
