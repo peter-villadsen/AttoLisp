@@ -29,5 +29,12 @@ namespace AttoLisp.Tests
             var exprs = TestHelper.ParseSource(expression);
             return Evaluator.Eval(exprs.Single());
         }
+
+        protected bool IsTruthy(LispValue value)
+        {
+            if (value is LispBoolean b)
+                return b.Value;
+            return value is not LispNil; // only nil is falsey by convention
+        }
     }
 }

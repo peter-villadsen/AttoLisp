@@ -83,8 +83,8 @@ namespace AttoLisp.Tests
         {
             var r1 = Eval("(empty? (list))");
             var r2 = Eval("(empty? (list 1))");
-            Assert.True(((LispBoolean)r1).Value);
-            Assert.False(((LispBoolean)r2).Value);
+            Assert.True(IsTruthy(r1));
+            Assert.False(IsTruthy(r2));
         }
 
         [Fact]

@@ -127,9 +127,8 @@ namespace AttoLisp.Tests
         [Fact]
         public void Let_Evaluates_Bindings_In_Outer_Env()
         {
-            // y does not see x in the same let binding group
-            var r = Eval("(let ((x 1) (y (+ x 1))) y)");
-            Assert.IsType<LispNil>(r);
+            // y does not see x in the same let binding group; this should fail with unbound x
+            Assert.Throws<Exception>(() => Eval("(let ((x 1) (y (+ x 1))) y)"));
         }
 
         [Fact]

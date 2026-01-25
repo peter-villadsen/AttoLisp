@@ -62,7 +62,7 @@ namespace AttoLisp.Tests
             var list = (LispList)r;
             Assert.Equal("-", ((LispSymbol)list.Elements[0]).Name);
             Assert.Equal(0, (int)((LispInteger)list.Elements[1]).Value);
-            Assert.Equal(-5, (int)((LispInteger)list.Elements[2]).Value);
+            Assert.Equal(5, (int)((LispInteger)list.Elements[2]).Value);
         }
 
         [Fact]

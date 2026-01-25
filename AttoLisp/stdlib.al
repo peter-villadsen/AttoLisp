@@ -50,7 +50,9 @@
 
 ; Is list empty?
 (define empty? (xs)
-  (or (= xs nil) (= (car xs) nil)))
+  (if (or (= xs nil) (= (car xs) nil))
+      t
+      nil))
 
 ; Reverse a list
 (define reverse (xs)
