@@ -1,5 +1,8 @@
 # AttoLisp - A Small Lisp Interpreter
 
+[![.NET Tests](https://github.com/peter-villadsen/AttoLisp/actions/workflows/dotnet.yml/badge.svg)](https://github.com/peter-villadsen/AttoLisp/actions/workflows/dotnet.yml)
+[![codecov](https://codecov.io/gh/peter-villadsen/AttoLisp/branch/main/graph/badge.svg)](https://codecov.io/gh/peter-villadsen/AttoLisp)
+
 A minimal Lisp interpreter implementation in C# with support for arithmetic, strings, dates, and basic functional programming constructs.
 
 ## Running the Interpreter
@@ -163,6 +166,5 @@ In addition to the current `+`, `-`, `*`, `/`, `=`, `<`, and `>`, future version
 - `sin`, `cos`, `tan`, and other trigonometric functions
 - `floor`, `ceiling`, `truncate`, `round`
 - `mod`, `rem`
-
 - `gcd`, `lcm`
 - A richer numeric tower (rationals, big integers, complex numbers)
