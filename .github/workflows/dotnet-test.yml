@@ -38,7 +38,7 @@ jobs:
         with:
           name: test-artifacts
           path: |
-            test_results.trx
+            AttoLisp.Tests/TestResults/**/test_results.trx
             coverage/**
 
       - name: Publish test results with annotations
@@ -46,7 +46,7 @@ jobs:
         if: always()
         with:
           name: dotnet-tests
-          path: test_results.trx
+          path: AttoLisp.Tests/TestResults/**/test_results.trx
           reporter: dotnet-trx
           fail-on-error: false
 
