@@ -34,16 +34,15 @@ jobs:
           dotnet test AttoLisp.Tests/AttoLisp.Tests.csproj --configuration Release --no-build \
             --logger "trx;LogFileName=test_results.trx" \
             /p:CollectCoverage=true \
-            /p:CoverletOutput=coverage/ \
+            /p:CoverletOutput=coverage/coverage.cobertura.xml \
             /p:CoverletOutputFormat=cobertura
-
-      - name: Upload test results & coverage artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-artifacts
-          path: |
-            AttoLisp.Tests/TestResults/**/test_results.trx
-            coverage/**
+            - name: Upload test results & coverage artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                name: test-artifacts
+                path: |
+                  AttoLisp.Tests/TestResults/**/test_results.trx
+                  coverage/**
 
       - name: Publish test results with annotations
         uses: dorny/test-reporter@v1
@@ -58,10 +57,9 @@ jobs:
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
-          files: coverage/*.xml
+          files: coverage/coverage.cobertura.xml
           fail_ci_if_error: false
         env:
-          # Optional: set CODECOV_TOKEN in the repo secrets if private repo requires it
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Install reportgenerator
@@ -70,8 +68,11 @@ jobs:
       - name: Generate HTML coverage report
         run: |
           mkdir -p coverage/report
-          $HOME/.dotnet/tools/reportgenerator -reports:coverage/*.xml -targetdir:coverage/report -reporttypes:Html
-
+          $HOME/.dotnet/tools/reportgenerator \
+            -reports:coverage/coverage.cobertura.xml \
+            -targetdir:coverage/report \
+            -reporttypes:Html
+            
       - name: Upload HTML coverage report artifact
         uses: actions/upload-artifact@v4
         with:
