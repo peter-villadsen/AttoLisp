@@ -2,24 +2,8 @@ using Xunit;
 
 namespace AttoLisp.Tests
 {
-    public class CondTests
+    public class CondTests : EvaluatorTestsBase
     {
-        private readonly Evaluator _evaluator;
-
-        public CondTests()
-        {
-            _evaluator = new Evaluator();
-        }
-
-        private LispValue Eval(string expression)
-        {
-            var tokenizer = new Tokenizer(expression);
-            var tokens = tokenizer.Tokenize();
-            var parser = new Parser(tokens);
-            var expr = parser.Parse();
-            return _evaluator.Eval(expr);
-        }
-
         [Fact]
         public void Cond_SelectsFirstTrueClause()
         {

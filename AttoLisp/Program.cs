@@ -4,8 +4,44 @@
     {
         static void Main(string[] args)
         {
+            // Parse command line switches and positional script files
+            bool traceEval = false;
+            bool traceParse = false;
+            var scriptPaths = new List<string>();
+
+            if (args != null)
+            {
+                foreach (var arg in args)
+                {
+                    switch (arg)
+                    {
+                        case "--trace":
+                        case "-t":
+                            traceEval = true;
+                            break;
+                        case "--traceParse":
+                        case "-tp":
+                            traceParse = true;
+                            break;
+                        default:
+                            // treat anything else as a script path
+                            scriptPaths.Add(arg);
+                            break;
+                    }
+                }
+            }
+
             Console.WriteLine("AttoLisp Interpreter v0.2");
-            var evaluator = new Evaluator();
+            if (traceEval)
+            {
+                Console.WriteLine("[trace] Evaluation tracing enabled");
+            }
+            if (traceParse)
+            {
+                Console.WriteLine("[trace] Parse tracing enabled");
+            }
+
+            var evaluator = new Evaluator(traceEval, traceParse);
 
             // Load stdlib if present in working directory
             var stdlibPath = Path.Combine(AppContext.BaseDirectory, "stdlib.al");
@@ -13,11 +49,7 @@
             {
                 try
                 {
-                    var source = File.ReadAllText(stdlibPath);
-                    var tokenizer = new Tokenizer(source);
-                    var tokens = tokenizer.Tokenize();
-                    var parser = new Parser(tokens);
-                    var exprs = parser.ParseAll();
+                    var exprs = ParseFile(stdlibPath);
                     foreach (var expr in exprs)
                     {
                         evaluator.Eval(expr);
@@ -25,15 +57,13 @@
                 }
                 catch (Exception ex)
                 {
-                    Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine($"Warning: Failed to load stdlib: {ex.Message}");
-                    Console.ResetColor();
+                    WriteFriendlyParseError("standard library", ex);
                 }
             }
 
-            if (args != null && args.Length > 0)
+            if (scriptPaths.Count > 0)
             {
-                foreach (var path in args)
+                foreach (var path in scriptPaths)
                 {
                     try
                     {
@@ -45,11 +75,7 @@
                             continue;
                         }
 
-                        var source = File.ReadAllText(path);
-                        var tokenizer = new Tokenizer(source);
-                        var tokens = tokenizer.Tokenize();
-                        var parser = new Parser(tokens);
-                        var exprs = parser.ParseAll();
+                        var exprs = ParseFile(path);
 
                         foreach (var expr in exprs)
                         {
@@ -62,9 +88,8 @@
                     }
                     catch (Exception ex)
                     {
-                        Console.ForegroundColor = ConsoleColor.Red;
-                        Console.WriteLine($"Error in {path}: {ex.Message}");
-                        Console.ResetColor();
+                        var displayName = Path.GetFileName(path);
+                        WriteFriendlyParseError(displayName, ex);
                     }
                 }
                 Console.WriteLine();
@@ -86,7 +111,8 @@
 
                     input = input.Trim();
 
-                    if (input.ToLower() == "exit" || input.ToLower() == "quit")
+                    if (input.Equals("exit", StringComparison.OrdinalIgnoreCase) ||
+                        input.Equals("quit", StringComparison.OrdinalIgnoreCase))
                     {
                         Console.WriteLine("Goodbye!");
                         break;
@@ -98,12 +124,15 @@
                     var parser = new Parser(tokens);
                     var expr = parser.Parse();
 
+                    if (traceParse && expr is LispList list)
+                    {
+                        PrettyPrintList(list, "[parse]");
+                    }
+
                     var result = evaluator.Eval(expr);
 
-                    if (result is not LispNil)
-                    {
-                        Console.WriteLine($"=> {result}");
-                    }
+                    // Always show the result, even if it is nil
+                    Console.WriteLine($"=> {result}");
                 }
                 catch (Exception ex)
                 {
@@ -115,5 +144,75 @@
                 Console.WriteLine();
             }
         }
+
+        internal static List<LispValue> ParseFile(string path)
+        {
+            var source = File.ReadAllText(path);
+            return ParseSource(source);
+        }
+
+        internal static List<LispValue> ParseSource(string source)
+        {
+            var tokenizer = new Tokenizer(source);
+            var tokens = tokenizer.Tokenize();
+            var parser = new Parser(tokens);
+            return parser.ParseAll();
+        }
+
+        private static void WriteFriendlyParseError(string sourceLabel, Exception ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+
+            // Try to extract line/column information from the message, if present
+            // Expected pattern from Parser: "Expected ')' at end of list (line X, col Y)"
+            var msg = ex.Message ?? string.Empty;
+            var lineInfo = "";
+            var idx = msg.IndexOf("(line ", StringComparison.OrdinalIgnoreCase);
+            if (idx >= 0)
+            {
+                lineInfo = msg.Substring(idx).TrimEnd('.');
+                msg = msg.Substring(0, idx).TrimEnd();
+            }
+
+            Console.WriteLine($"Syntax error while reading {sourceLabel}: {msg}.");
+            if (!string.IsNullOrEmpty(lineInfo))
+            {
+                Console.WriteLine($"Location: {lineInfo}.");
+                Console.WriteLine("Hint: The list that ends here most likely started earlier in the file; check for a missing ')' before this position.");
+            }
+
+            Console.ResetColor();
+        }
+
+        private static void PrettyPrintList(LispList list, string prefix)
+        {
+            void PrintValue(LispValue value, int indent)
+            {
+                var indentStr = new string(' ', indent * 2);
+                switch (value)
+                {
+                    case LispList inner:
+                        Console.ForegroundColor = ConsoleColor.DarkGray;
+                        Console.WriteLine($"{prefix} {indentStr}(");
+                        Console.ResetColor();
+                        foreach (var e in inner.Elements)
+                        {
+                            PrintValue(e, indent + 1);
+                        }
+                        Console.ForegroundColor = ConsoleColor.DarkGray;
+                        Console.WriteLine($"{prefix} {indentStr})");
+                        Console.ResetColor();
+                        break;
+                    default:
+                        Console.ForegroundColor = ConsoleColor.DarkGray;
+                        Console.WriteLine($"{prefix} {indentStr}{value}");
+                        Console.ResetColor();
+                        break;
+                }
+            }
+
+            PrintValue(list, 0);
+        }
     }
 }
+

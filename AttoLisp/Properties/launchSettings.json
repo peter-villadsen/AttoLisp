@@ -2,7 +2,7 @@
   "profiles": {
     "AttoLisp": {
       "commandName": "Project",
-      "commandLineArgs": " "
+      "commandLineArgs": " --trace --traceParse  C:\\Users\\peter\\OneDrive\\Desktop\\AttoLisp\\AttoLisp\\ParseExpression.al"
     }
   }
 }

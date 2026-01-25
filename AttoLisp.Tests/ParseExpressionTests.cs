@@ -2,38 +2,17 @@ using Xunit;
 
 namespace AttoLisp.Tests
 {
-    public class ParseExpressionTests
+    public class ParseExpressionTests : EvaluatorTestsBase
     {
-        private readonly Evaluator _evaluator;
-
         public ParseExpressionTests()
         {
-            // Read the stdlib.al and then the ParseExpression.al files
-            _evaluator = new Evaluator();
-            var stdlibPath = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "AttoLisp", "stdlib.al");
-            var parsePath = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "AttoLisp", "ParseExpression.al");
-            foreach (var path in new[] { stdlibPath, parsePath })
+            var parsePath = Path.Combine(AppContext.BaseDirectory, "ParseExpression.al");
+            if (!File.Exists(parsePath)) throw new FileNotFoundException(parsePath);
+            var exprs = TestHelper.ParseFile(parsePath);
+            foreach (var expr in exprs)
             {
-                if (!File.Exists(path)) throw new FileNotFoundException(path);
-                var source = File.ReadAllText(path);
-                var tokenizer = new Tokenizer(source);
-                var tokens = tokenizer.Tokenize();
-                var parser = new Parser(tokens);
-                var exprs = parser.ParseAll();
-                foreach (var expr in exprs)
-                {
-                    _evaluator.Eval(expr);
-                }
+                Evaluator.Eval(expr);
             }
-        }
-
-        private LispValue Eval(string expression)
-        {
-            var tokenizer = new Tokenizer(expression);
-            var tokens = tokenizer.Tokenize();
-            var parser = new Parser(tokens);
-            var expr = parser.Parse();
-            return _evaluator.Eval(expr);
         }
 
         [Fact]

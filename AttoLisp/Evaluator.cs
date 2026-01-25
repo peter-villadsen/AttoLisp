@@ -45,11 +45,25 @@ namespace AttoLisp
     public class Evaluator
     {
         private readonly Environment _globalEnv;
+        private readonly bool _trace;
+        private readonly bool _traceParse;
 
-        public Evaluator()
+        public Evaluator(bool trace = false, bool traceParse = false)
         {
             _globalEnv = new Environment();
+            _trace = trace;
+            _traceParse = traceParse;
             InitializeGlobalEnvironment();
+        }
+
+        private void Trace(string message)
+        {
+            if (_trace)
+            {
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.WriteLine($"[trace] {message}");
+                Console.ResetColor();
+            }
         }
 
         private void InitializeGlobalEnvironment()
@@ -186,6 +200,38 @@ namespace AttoLisp
                 return LispBoolean.True;
             }));
 
+            _globalEnv.Define("<=", new LispFunction("<=", args =>
+            {
+                if (args.Count < 2)
+                    throw new Exception("<= requires at least two arguments");
+
+                for (int i = 1; i < args.Count; i++)
+                {
+                    var a = args[i - 1];
+                    var b = args[i];
+                    // if a > b then a <= b is false
+                    if (IsLessThan(b, a) && !AreEqual(a, b))
+                        return LispBoolean.False;
+                }
+                return LispBoolean.True;
+            }));
+
+            _globalEnv.Define(">=", new LispFunction(">=", args =>
+            {
+                if (args.Count < 2)
+                    throw new Exception(">= requires at least two arguments");
+
+                for (int i = 1; i < args.Count; i++)
+                {
+                    var a = args[i - 1];
+                    var b = args[i];
+                    // if a < b then a >= b is false
+                    if (IsLessThan(a, b) && !AreEqual(a, b))
+                        return LispBoolean.False;
+                }
+                return LispBoolean.True;
+            }));
+
             // String operations
             _globalEnv.Define("concat", new LispFunction("concat", args =>
             {
@@ -231,6 +277,7 @@ namespace AttoLisp
                     throw new Exception("to-lower expects a single string argument");
                 return new LispString(s.Value.ToLowerInvariant());
             }));
+
 
             // Date operations
             _globalEnv.Define("now", new LispFunction("now", args =>
@@ -331,18 +378,98 @@ namespace AttoLisp
             }));
             _globalEnv.Define("and", new LispFunction("and", args =>
             {
-                if (args.Count != 2) throw new Exception("and expects exactly two arguments");
-                return (IsTruthy(args[0]) && IsTruthy(args[1])) ? LispBoolean.True : LispBoolean.False;
+                // (and a b c ...) evaluates left-to-right and short-circuits on nil
+                if (args.Count == 0)
+                {
+                    // With zero arguments, (and) returns T
+                    return LispBoolean.True;
+                }
+
+                LispValue last = LispBoolean.True;
+                foreach (var arg in args)
+                {
+                    if (!IsTruthy(arg))
+                    {
+                        // As soon as one argument evaluates to NIL, return NIL
+                        return LispNil.Instance;
+                    }
+                    last = arg;
+                }
+
+                // All arguments were non-nil; return the value of the last expression
+                return last;
             }));
             _globalEnv.Define("or", new LispFunction("or", args =>
             {
-                if (args.Count != 2) throw new Exception("or expects exactly two arguments");
-                return (IsTruthy(args[0]) || IsTruthy(args[1])) ? LispBoolean.True : LispBoolean.False;
+                // (or a b c ...) evaluates left-to-right and returns first truthy value or nil
+                if (args.Count == 0)
+                {
+                    return LispNil.Instance;
+                }
+
+                foreach (var arg in args)
+                {
+                    if (IsTruthy(arg))
+                    {
+                        return arg;
+                    }
+                }
+
+                return LispNil.Instance;
             }));
             _globalEnv.Define("xor", new LispFunction("xor", args =>
             {
                 if (args.Count != 2) throw new Exception("xor expects exactly two arguments");
                 return (IsTruthy(args[0]) ^ IsTruthy(args[1])) ? LispBoolean.True : LispBoolean.False;
+            }));
+
+            // List access function
+            _globalEnv.Define("nth", new LispFunction("nth", args =>
+            {
+                if (args.Count != 2)
+                    throw new Exception("nth expects exactly two arguments");
+                if (args[0] is not LispList list)
+                    throw new Exception("nth expects a list as the first argument");
+                var index = ToInt32(args[1]);
+                if (index < 0 || index >= list.Elements.Count)
+                    return LispNil.Instance;
+                return list.Elements[index];
+            }));
+
+            // Convert string to number
+            _globalEnv.Define("number", new LispFunction("number", args =>
+            {
+                if (args.Count != 1)
+                    throw new Exception("number expects exactly one argument");
+                if (args[0] is LispString str)
+                {
+                    if (str.Value.Contains('.'))
+                    {
+                        if (decimal.TryParse(str.Value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var d))
+                            return new LispDecimal(d);
+                    }
+                    else
+                    {
+                        if (System.Numerics.BigInteger.TryParse(str.Value, System.Globalization.CultureInfo.InvariantCulture, out var bi))
+                            return new LispInteger(bi);
+                    }
+                    throw new Exception($"Cannot convert '{str.Value}' to number");
+                }
+                if (args[0] is LispInteger || args[0] is LispDecimal)
+                    return args[0];
+                throw new Exception("number expects a string or number argument");
+            }));
+
+            // Create symbol from string
+            _globalEnv.Define("symbol", new LispFunction("symbol", args =>
+            {
+                if (args.Count != 1)
+                    throw new Exception("symbol expects exactly one argument");
+                if (args[0] is LispString str)
+                    return new LispSymbol(str.Value);
+                if (args[0] is LispSymbol sym)
+                    return sym;
+                throw new Exception("symbol expects a string argument");
             }));
         }
 
@@ -444,6 +571,11 @@ namespace AttoLisp
         {
             env ??= _globalEnv;
 
+            if (_trace)
+            {
+                Trace($"Eval: {expr}");
+            }
+
             return expr switch
             {
                 LispInteger or LispDecimal or LispString or LispDate or LispBoolean => expr,
@@ -493,6 +625,9 @@ namespace AttoLisp
 
                     case "cond":
                         return EvalCond(list, env);
+
+                    case "let":
+                        return EvalLet(list, env);
                 }
             }
 
@@ -510,15 +645,57 @@ namespace AttoLisp
             if (list.Elements.Count < 3 || list.Elements.Count > 4)
                 throw new Exception("if expects 2 or 3 arguments: (if condition then-expr [else-expr])");
 
+            Trace($"If condition: {list.Elements[1]}");
             var condition = Eval(list.Elements[1], env);
             bool isTrue = IsTruthy(condition);
+            Trace($"If condition value: {condition} => {(isTrue ? "true" : "false")}");
 
             if (isTrue)
+            {
+                Trace($"If then-branch: {list.Elements[2]}");
                 return Eval(list.Elements[2], env);
+            }
             else if (list.Elements.Count == 4)
+            {
+                Trace($"If else-branch: {list.Elements[3]}");
                 return Eval(list.Elements[3], env);
+            }
             else
+            {
                 return LispNil.Instance;
+            }
+        }
+
+        private LispValue EvalLet(LispList list, Environment env)
+        {
+            // (let ((name value) ...) body...)
+            if (list.Elements.Count < 3)
+                throw new Exception("let expects a bindings list and at least one body expression");
+
+            if (list.Elements[1] is not LispList bindingsList)
+                throw new Exception("let expects a list of bindings as its first argument");
+
+            var localEnv = new Environment(env);
+
+            foreach (var bindingVal in bindingsList.Elements)
+            {
+                if (bindingVal is not LispList binding || binding.Elements.Count != 2)
+                    throw new Exception("let bindings must be lists of the form (name value)");
+
+                if (binding.Elements[0] is not LispSymbol nameSym)
+                    throw new Exception("let binding name must be a symbol");
+
+                var value = Eval(binding.Elements[1], env); // evaluate in outer env
+                localEnv.Define(nameSym.Name, value);
+            }
+
+            LispValue result = LispNil.Instance;
+            for (int i = 2; i < list.Elements.Count; i++)
+            {
+                result = Eval(list.Elements[i], localEnv);
+            }
+
+            return result;
         }
 
         private LispValue EvalDefine(LispList list, Environment env)
@@ -703,3 +880,4 @@ namespace AttoLisp
         }
     }
 }
+

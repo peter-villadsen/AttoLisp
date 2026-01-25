@@ -2,6 +2,31 @@
 
 A minimal Lisp interpreter implementation in C# with support for arithmetic, strings, dates, and basic functional programming constructs.
 
+## Running the Interpreter
+
+```bash
+cd AttoLisp
+# normal
+ dotnet run --project AttoLisp
+# with tracing enabled
+ dotnet run --project AttoLisp -- --trace
+# or
+ dotnet run --project AttoLisp -- -t
+```
+
+### Tracing (`--trace` / `-t`)
+
+When you start AttoLisp with `--trace` or `-t`, the evaluator prints a trace of what it is doing:
+
+- Each top-level evaluation: `Eval: <expression>`
+- Function calls: `Call: name(arg1, arg2, ...)` followed by `Result: <result>`
+- `if` forms:
+  - `If condition: <cond-expr>`
+  - `If condition value: <value> => true|false`
+  - `If then-branch: <expr>` or `If else-branch: <expr>`
+
+This is useful for understanding how expressions are evaluated and for debugging.
+
 ## Architecture
 
 ### Components
@@ -29,6 +54,7 @@ A minimal Lisp interpreter implementation in C# with support for arithmetic, str
    - Evaluates expressions
    - Manages environment/scope
    - Implements built-in functions and special forms
+   - Supports optional tracing of evaluation when enabled via `--trace` / `-t`
 
 5. **Program.cs** - REPL
    - Read-Eval-Print Loop
@@ -101,15 +127,6 @@ A minimal Lisp interpreter implementation in C# with support for arithmetic, str
 (car nums)  ; => 1
 (cdr nums)  ; => (2 3 4 5)
 ```
-
-## Running the REPL
-
-```bash
-cd AttoLisp
-dotnet run
-```
-
-Type `help` for more examples or `exit`/`quit` to exit.
 
 ## Future Enhancements (for compiler version)
 

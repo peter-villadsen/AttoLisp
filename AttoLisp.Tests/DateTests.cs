@@ -1,23 +1,9 @@
+using Xunit;
+
 namespace AttoLisp.Tests;
 
-public class DateTests
+public class DateTests : EvaluatorTestsBase
 {
-    private readonly Evaluator _evaluator;
-
-    public DateTests()
-    {
-        _evaluator = new Evaluator();
-    }
-
-    private LispValue Eval(string expression)
-    {
-        var tokenizer = new Tokenizer(expression);
-        var tokens = tokenizer.Tokenize();
-        var parser = new Parser(tokens);
-        var expr = parser.Parse();
-        return _evaluator.Eval(expr);
-    }
-
     [Fact]
     public void Now_ReturnsCurrentDate()
     {

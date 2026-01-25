@@ -1,23 +1,9 @@
+using Xunit;
+
 namespace AttoLisp.Tests;
 
-public class ArithmeticTests
+public class ArithmeticTests : EvaluatorTestsBase
 {
-    private readonly Evaluator _evaluator;
-
-    public ArithmeticTests()
-    {
-        _evaluator = new Evaluator();
-    }
-
-    private LispValue Eval(string expression)
-    {
-        var tokenizer = new Tokenizer(expression);
-        var tokens = tokenizer.Tokenize();
-        var parser = new Parser(tokens);
-        var expr = parser.Parse();
-        return _evaluator.Eval(expr);
-    }
-
     [Fact]
     public void Addition_MultipleNumbers_ReturnsSum()
     {
