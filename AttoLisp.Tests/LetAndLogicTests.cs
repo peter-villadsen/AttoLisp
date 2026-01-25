@@ -167,14 +167,20 @@ namespace AttoLisp.Tests
         [Fact]
         public void Or_Evaluates_All_When_All_Nil()
         {
+            // To test that or evaluates all expressions when they're all nil,
+            // we need expressions that have side effects but return nil
             Eval("(define counter 0)");
-            Eval("(or (set! counter (+ counter 1)) nil (set! counter (+ counter 1)) nil)");
+            Eval("(define increment-and-return-nil (lambda () (set! counter (+ counter 1)) nil))");
             
-            // Even though we return nil, all expressions should be evaluated
-            // First set! returns 1, second set! returns 2, but or returns nil
+            var result = Eval("(or (increment-and-return-nil) (increment-and-return-nil) (increment-and-return-nil))");
+            
+            // or should return nil (no truthy value found)
+            Assert.IsType<LispNil>(result);
+            
+            // All three lambdas should have been called, incrementing counter to 3
             var counter = Eval("counter");
             Assert.IsType<LispInteger>(counter);
-            Assert.Equal(2, (int)((LispInteger)counter).Value);
+            Assert.Equal(3, (int)((LispInteger)counter).Value);
         }
 
         [Fact]

@@ -14,13 +14,14 @@
             {
                 foreach (var arg in args)
                 {
-                    switch (arg)
+                    var argLower = arg.ToLowerInvariant();
+                    switch (argLower)
                     {
                         case "--trace":
                         case "-t":
                             traceEval = true;
                             break;
-                        case "--traceParse":
+                        case "--traceparse":
                         case "-tp":
                             traceParse = true;
                             break;
