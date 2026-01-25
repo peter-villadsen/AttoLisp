@@ -47,7 +47,7 @@ jobs:
         with:
           name: dotnet-tests
           path: test_results.trx
-          reporter: github-pr-check
+          reporter: dotnet-trx
           fail-on-error: false
 
       - name: Upload coverage to Codecov
