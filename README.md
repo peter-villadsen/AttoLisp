@@ -1,87 +1,139 @@
-# AttoLisp
+# AttoLisp - A Small Lisp Interpreter
 
-AttoLisp is a small Lisp interpreter written in C#. It was created to illustrate how easy it is to build a Lisp interpreter: the code prioritizes clarity and pedagogy over performance or completeness. The project includes a tokenizer, parser, evaluator, a small standard library (`stdlib.al`), and a unit test suite that demonstrates language features and correctness.
+A minimal Lisp interpreter implementation in C# with support for arithmetic, strings, dates, and basic functional programming constructs.
 
-If you're learning about interpreters, AttoLisp is intentionally compact and readable so you can trace the evaluation flow and experiment by editing the source.
+## Running the Interpreter
 
-## Requirements
-
-- .NET 9 SDK (or compatible)
-
-## Build and run
-
-From the repository root (PowerShell):
-
-```powershell
-# restore and build
-dotnet restore
-dotnet build
-
-# run the program
-dotnet run --project AttoLisp
-
-# run the tests
-dotnet test
+```bash
+cd AttoLisp
+# normal
+ dotnet run --project AttoLisp
+# with tracing enabled
+ dotnet run --project AttoLisp -- --trace
+# or
+ dotnet run --project AttoLisp -- -t
 ```
 
-## Project layout
+### Tracing (`--trace` / `-t`)
 
-- `AttoLisp/` - main project
-- `AttoLisp.Tests/` - unit tests (xUnit)
+When you start AttoLisp with `--trace` or `-t`, the evaluator prints a trace of what it is doing:
 
-## Creating a GitHub repository and pushing this project
+- Each top-level evaluation: `Eval: <expression>`
+- Function calls: `Call: name(arg1, arg2, ...)` followed by `Result: <result>`
+- `if` forms:
+  - `If condition: <cond-expr>`
+  - `If condition value: <value> => true|false`
+  - `If then-branch: <expr>` or `If else-branch: <expr>`
 
-Below are two exact, copy-paste-ready ways to create a GitHub repository for this project and push your code from PowerShell. Run these commands from the repository root `c:\Users\peter\OneDrive\Desktop\AttoLisp`. Replace `YourUserName` with your GitHub username or organization name.
+This is useful for understanding how expressions are evaluated and for debugging.
 
-Option 1 — Create the repository on GitHub (web UI)
+## Architecture
 
-1. Open https://github.com and sign in.
-2. Click "New" (or the "+" → "New repository").
-3. Name the repository `AttoLisp`, pick Public or Private, and do NOT initialize with a README (we already have one).
-4. Create the repository. GitHub will show a repository URL such as `https://github.com/YourUserName/AttoLisp.git`.
+### Components
 
-Then run these PowerShell commands to push the code:
+1. **LispValue.cs** - Core data types
+   - `LispNumber` - Numeric values (double precision)
+   - `LispString` - String values
+   - `LispDate` - DateTime values
+   - `LispSymbol` - Variable/function names
+   - `LispList` - List structures
+   - `LispBoolean` - Boolean values (t/nil)
+   - `LispNil` - Null/empty value
+   - `LispFunction` - Function values
 
-```powershell
-git init
-git add .
-git commit -m "Initial commit — add .gitignore, README, LICENSE"
-git branch -M main
-git remote add origin https://github.com/YourUserName/AttoLisp.git
-git push -u origin main
+2. **Tokenizer.cs** - Lexical analysis
+   - Breaks input into tokens
+   - Handles parentheses, numbers, strings, symbols, and dates
+   - Supports comments (;) and escape sequences
+
+3. **Parser.cs** - Syntax analysis
+   - Converts tokens into AST
+   - Creates LispValue objects
+
+4. **Evaluator.cs** - Interpretation engine
+   - Evaluates expressions
+   - Manages environment/scope
+   - Implements built-in functions and special forms
+   - Supports optional tracing of evaluation when enabled via `--trace` / `-t`
+
+5. **Program.cs** - REPL
+   - Read-Eval-Print Loop
+   - User interaction
+
+## Built-in Functions
+
+### Arithmetic
+- `(+ args...)` - Addition
+- `(- args...)` - Subtraction
+- `(* args...)` - Multiplication
+- `(/ args...)` - Division
+
+### Comparison
+- `(= a b ...)` - Equality
+- `(< a b ...)` - Less than
+- `(> a b ...)` - Greater than
+
+### Strings
+- `(concat args...)` - Concatenate strings
+- `(str-length str)` - Get string length
+
+### Dates
+- `(now)` - Get current date/time
+- `#d"YYYY-MM-DD"` - Date literal
+- `(date-year date)` - Extract year
+- `(date-month date)` - Extract month
+- `(date-day date)` - Extract day
+
+### Lists
+- `(list args...)` - Create list
+- `(car list)` - First element
+- `(cdr list)` - Rest of list
+- `(cons item list)` - Prepend item
+
+### Special Forms
+- `(quote expr)` - Return unevaluated expression
+- `(if cond then [else])` - Conditional
+- `(define name value)` - Define variable
+- `(set! name value)` - Update variable
+- `(lambda (params...) body...)` - Create function
+
+### I/O
+- `(print args...)` - Print to console
+
+## Examples
+
+```lisp
+; Basic arithmetic
+(+ 1 2 3)  ; => 6
+(* 2 (+ 3 4))  ; => 14
+
+; String operations
+(concat "Hello" " " "World")  ; => "Hello World"
+
+; Date operations
+(date-year (now))  ; => current year
+(date-month #d"2024-12-25")  ; => 12
+
+; Variables and functions
+(define x 10)
+(define square (lambda (x) (* x x)))
+(square 5)  ; => 25
+
+; Conditionals
+(if (> 10 5) "big" "small")  ; => "big"
+
+; Lists
+(define nums (list 1 2 3 4 5))
+(car nums)  ; => 1
+(cdr nums)  ; => (2 3 4 5)
 ```
 
-Option 2 — Create the repository using GitHub CLI (`gh`)
+## Future Enhancements (for compiler version)
 
-If you have the GitHub CLI installed and authenticated, you can create and push in one flow:
-
-```powershell
-git init
-git add .
-git commit -m "Initial commit — add .gitignore, README, LICENSE"
-gh repo create YourUserName/AttoLisp --public --source=. --remote=origin --push
-```
-
-Notes
-
-- To use SSH instead of HTTPS, replace the remote URL with the SSH URL GitHub shows (e.g. `git@github.com:YourUserName/AttoLisp.git`).
-- If your local branch is named `master`, rename it to `main` (`git branch -M main`) or push the `master` branch instead.
-- If Git prompts for credentials when pushing over HTTPS, use a Personal Access Token (PAT) or switch to SSH keys.
-
-## License
-
-This project is licensed under the MIT License — see the `LICENSE` file for details.
-
-## CI status
-
-![CI](https://github.com/peter-villadsen/AttoLisp/actions/workflows/dotnet-test.yml/badge.svg)
-
-## Coverage
-
-[![codecov](https://codecov.io/gh/peter-villadsen/AttoLisp/branch/main/graph/badge.svg)](https://codecov.io/gh/peter-villadsen/AttoLisp)
-
-The workflow generates an HTML coverage report which is uploaded as an artifact on each run. To view the full HTML report:
-
-1. Open the repository on GitHub: https://github.com/peter-villadsen/AttoLisp
-2. Click the "Actions" tab and select the latest workflow run for the `.NET Tests` workflow.
-3. On the workflow run page, expand the "Artifacts" section and download the `coverage-report` artifact — it contains a browsable HTML coverage report.
+- Tail call optimization
+- More data types (vectors, hash maps, complex, rational)
+- Module system
+- Macro support
+- Bytecode compilation
+- Native code generation
+� Named and optional parameters as in Common lisp
