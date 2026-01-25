@@ -47,12 +47,14 @@ namespace AttoLisp
         private readonly Environment _globalEnv;
         private readonly bool _trace;
         private readonly bool _traceParse;
+        private int _traceDepth;
 
         public Evaluator(bool trace = false, bool traceParse = false)
         {
             _globalEnv = new Environment();
             _trace = trace;
             _traceParse = traceParse;
+            _traceDepth = 0;
             InitializeGlobalEnvironment();
         }
 
@@ -60,9 +62,86 @@ namespace AttoLisp
         {
             if (_trace)
             {
+                var indent = new string(' ', _traceDepth * 2);
                 Console.ForegroundColor = ConsoleColor.DarkGray;
-                Console.WriteLine($"[trace] {message}");
+                Console.WriteLine($"{indent}{message}");
                 Console.ResetColor();
+            }
+        }
+
+        public void PrettyPrintForm(LispValue value, int indent = 0)
+        {
+            var indentStr = new string(' ', indent * 2);
+
+            switch (value)
+            {
+                case LispList list:
+                    if (list.Elements.Count == 0)
+                    {
+                        Console.ForegroundColor = ConsoleColor.DarkGray;
+                        Console.WriteLine(indentStr + "()");
+                        Console.ResetColor();
+                        return;
+                    }
+
+                    // Simple list: all atoms, print on one line
+                    if (list.Elements.All(e => e is not LispList))
+                    {
+                        var parts = list.Elements.Select(e => e.ToString());
+                        Console.ForegroundColor = ConsoleColor.DarkGray;
+                        Console.WriteLine(indentStr + "(" + string.Join(" ", parts) + ")");
+                        Console.ResetColor();
+                        return;
+                    }
+
+                    // Complex list: head + nested lists
+                    if (list.Elements[0] is LispSymbol sym)
+                    {
+                        // Print head and any immediate atomic args on first line
+                        var headLine = indentStr + "(" + sym.Name;
+                        int i = 1;
+                        for (; i < list.Elements.Count && list.Elements[i] is not LispList; i++)
+                        {
+                            headLine += " " + list.Elements[i];
+                        }
+
+                        Console.ForegroundColor = ConsoleColor.DarkGray;
+                        Console.WriteLine(headLine); // no closing paren yet
+                        Console.ResetColor();
+
+                        // Print remaining elements
+                        for (; i < list.Elements.Count; i++)
+                        {
+                            PrettyPrintForm(list.Elements[i], indent + 1);
+                        }
+
+                        Console.ForegroundColor = ConsoleColor.DarkGray;
+                        Console.WriteLine(indentStr + ")");
+                        Console.ResetColor();
+                    }
+                    else
+                    {
+                        // Generic list
+                        Console.ForegroundColor = ConsoleColor.DarkGray;
+                        Console.WriteLine(indentStr + "(");
+                        Console.ResetColor();
+
+                        foreach (var el in list.Elements)
+                        {
+                            PrettyPrintForm(el, indent + 1);
+                        }
+
+                        Console.ForegroundColor = ConsoleColor.DarkGray;
+                        Console.WriteLine(indentStr + ")");
+                        Console.ResetColor();
+                    }
+                    break;
+
+                default:
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                    Console.WriteLine(indentStr + value);
+                    Console.ResetColor();
+                    break;
             }
         }
 
@@ -573,17 +652,33 @@ namespace AttoLisp
 
             if (_trace)
             {
-                Trace($"Eval: {expr}");
+                Trace(expr.ToString());
+                _traceDepth++;
             }
 
-            return expr switch
+            LispValue result = LispNil.Instance; 
+
+            try
             {
-                LispInteger or LispDecimal or LispString or LispDate or LispBoolean => expr,
-                LispNil => expr,
-                LispSymbol symbol => EvalSymbol(symbol, env),
-                LispList list => EvalList(list, env),
-                _ => throw new Exception($"Cannot evaluate {expr.GetType().Name}")
-            };
+                result = expr switch
+                {
+                    LispInteger or LispDecimal or LispString or LispDate or LispBoolean => expr,
+                    LispNil => expr,
+                    LispSymbol symbol => EvalSymbol(symbol, env),
+                    LispList list => EvalList(list, env),
+                    _ => throw new Exception($"Cannot evaluate {expr.GetType().Name}")
+                };
+            }
+            finally
+            {
+                if (_trace)
+                {
+                    _traceDepth--;
+                    Trace($"=> {result}");
+                }
+            }
+
+            return result;
         }
 
         private LispValue EvalSymbol(LispSymbol symbol, Environment env)
@@ -628,6 +723,12 @@ namespace AttoLisp
 
                     case "let":
                         return EvalLet(list, env);
+
+                    case "let*":
+                        return EvalLetStar(list, env);
+
+                    case "letrec":
+                        return EvalLetRec(list, env);
                 }
             }
 
@@ -666,6 +767,9 @@ namespace AttoLisp
             }
         }
 
+        // let: evaluates all binding values in the outer environment, then
+        // creates a new environment with all bindings available to the body.
+        // (let ((x 1) (y (+ x 1))) body) -- y does NOT see x here.
         private LispValue EvalLet(LispList list, Environment env)
         {
             // (let ((name value) ...) body...)
@@ -687,6 +791,91 @@ namespace AttoLisp
 
                 var value = Eval(binding.Elements[1], env); // evaluate in outer env
                 localEnv.Define(nameSym.Name, value);
+            }
+
+            LispValue result = LispNil.Instance;
+            for (int i = 2; i < list.Elements.Count; i++)
+            {
+                result = Eval(list.Elements[i], localEnv);
+            }
+
+            return result;
+        }
+
+        // let*: evaluates bindings sequentially; each value expression sees the
+        // bindings introduced earlier in the same let*.
+        // (let* ((x 1) (y (+ x 1))) body) -- y sees x here.
+        private LispValue EvalLetStar(LispList list, Environment env)
+        {
+            // (let* ((name value) ...) body...)
+            if (list.Elements.Count < 3)
+                throw new Exception("let* expects a bindings list and at least one body expression");
+
+            if (list.Elements[1] is not LispList bindingsList)
+                throw new Exception("let* expects a list of bindings as its first argument");
+
+            var localEnv = new Environment(env);
+
+            foreach (var bindingVal in bindingsList.Elements)
+            {
+                if (bindingVal is not LispList binding || binding.Elements.Count != 2)
+                    throw new Exception("let* bindings must be lists of the form (name value)");
+
+                if (binding.Elements[0] is not LispSymbol nameSym)
+                    throw new Exception("let* binding name must be a symbol");
+
+                // In let*, each value is evaluated in the environment that already
+                // includes all previous bindings in this let*.
+                var value = Eval(binding.Elements[1], localEnv);
+                localEnv.Define(nameSym.Name, value);
+            }
+
+            LispValue result = LispNil.Instance;
+            for (int i = 2; i < list.Elements.Count; i++)
+            {
+                result = Eval(list.Elements[i], localEnv);
+            }
+
+            return result;
+        }
+
+        // letrec: all names are visible in all value expressions (mutually
+        // recursive bindings). We first create placeholders for all names in a
+        // new environment, then evaluate each value in that environment and
+        // assign into the existing bindings.
+        private LispValue EvalLetRec(LispList list, Environment env)
+        {
+            // (letrec ((name value) ...) body...)
+            if (list.Elements.Count < 3)
+                throw new Exception("letrec expects a bindings list and at least one body expression");
+
+            if (list.Elements[1] is not LispList bindingsList)
+                throw new Exception("letrec expects a list of bindings as its first argument");
+
+            var localEnv = new Environment(env);
+
+            // First pass: define all names with a temporary value so they are
+            // visible (possibly self- or mutually recursive) in all value expressions.
+            foreach (var bindingVal in bindingsList.Elements)
+            {
+                if (bindingVal is not LispList binding || binding.Elements.Count != 2)
+                    throw new Exception("letrec bindings must be lists of the form (name value)");
+
+                if (binding.Elements[0] is not LispSymbol nameSym)
+                    throw new Exception("letrec binding name must be a symbol");
+
+                // Use nil as an initial placeholder.
+                localEnv.Define(nameSym.Name, LispNil.Instance);
+            }
+
+            // Second pass: evaluate each value in the localEnv (where all names exist)
+            // and assign it into the existing binding using Set.
+            foreach (var bindingVal in bindingsList.Elements)
+            {
+                var binding = (LispList)bindingVal;
+                var nameSym = (LispSymbol)binding.Elements[0];
+                var value = Eval(binding.Elements[1], localEnv);
+                localEnv.Set(nameSym.Name, value);
             }
 
             LispValue result = LispNil.Instance;
@@ -739,16 +928,12 @@ namespace AttoLisp
             }
 
             // Case 1: (define name (args...) body...)
-            // Only treat as sugar if the second element is a list of symbols (parameters),
-            // not an expression like (lambda ...)
             if (list.Elements[1] is LispSymbol symbol && list.Elements[2] is LispList paramListForSugar && paramListForSugar.Elements.All(e => e is LispSymbol) && list.Elements.Count > 3)
             {
                 var paramNames = new List<string>();
                 foreach (var p in paramListForSugar.Elements)
                 {
-                    if (p is not LispSymbol ps)
-                        throw new Exception("define function parameters must be symbols");
-                    paramNames.Add(ps.Name);
+                    paramNames.Add(((LispSymbol)p).Name);
                 }
 
                 var body = list.Elements.Skip(3).ToList();
@@ -773,7 +958,7 @@ namespace AttoLisp
                 return fn;
             }
 
-            // Fallback: variable define (including define name (lambda ...) ...)
+            // Fallback: variable define
             if (list.Elements[1] is not LispSymbol varSymbol)
                 throw new Exception("define expects a symbol as the first argument");
 
@@ -849,7 +1034,6 @@ namespace AttoLisp
 
                 if (first is LispSymbol sym && sym.Name == "else")
                 {
-                    // else must be the last clause by convention, but we'll just select it if reached
                     selected = true;
                 }
                 else
@@ -859,11 +1043,9 @@ namespace AttoLisp
                 }
                 if (selected)
                 {
-                    // Evaluate clause expressions in order, return last value. If none, return test value.
                     LispValue result = LispNil.Instance;
                     if (clause.Elements.Count == 1)
                     {
-                        // Only test provided; return its value
                         result = Eval(first, env);
                         return result;
                     }

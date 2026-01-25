@@ -136,3 +136,4 @@ This is useful for understanding how expressions are evaluated and for debugging
 - Macro support
 - Bytecode compilation
 - Native code generation
+– Named and optional parameters as in Common lisp

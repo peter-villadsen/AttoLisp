@@ -123,5 +123,34 @@ namespace AttoLisp.Tests
             Assert.IsType<LispString>(result);
             Assert.Equal("big", ((LispString)result).Value);
         }
+
+        [Fact]
+        public void Let_Evaluates_Bindings_In_Outer_Env()
+        {
+            // y does not see x in the same let binding group
+            var r = Eval("(let ((x 1) (y (+ x 1))) y)");
+            Assert.IsType<LispNil>(r);
+        }
+
+        [Fact]
+        public void LetStar_Evaluates_Bindings_Sequentially()
+        {
+            var r = Eval("(let* ((x 1) (y (+ x 1))) y)");
+            Assert.IsType<LispInteger>(r);
+            Assert.Equal(2, (int)((LispInteger)r).Value);
+        }
+
+        [Fact]
+        public void LetRec_Allows_Mutually_Recursive_Local_Functions()
+        {
+            // Simple even/odd using letrec
+            var expr = "(letrec ((even (lambda (n) (if (= n 0) t (odd (- n 1)))))" +
+                       "        (odd  (lambda (n) (if (= n 0) nil (even (- n 1))))))" +
+                       "  (and (even 4) (odd 3)))";
+
+            var r = Eval(expr);
+            Assert.IsType<LispBoolean>(r);
+            Assert.True(((LispBoolean)r).Value);
+        }
     }
 }

@@ -52,6 +52,7 @@
                     var exprs = ParseFile(stdlibPath);
                     foreach (var expr in exprs)
                     {
+                        // Evaluate for side-effects (defines), do not print results
                         evaluator.Eval(expr);
                     }
                 }
@@ -79,11 +80,8 @@
 
                         foreach (var expr in exprs)
                         {
-                            var result = evaluator.Eval(expr);
-                            if (result is not LispNil)
-                            {
-                                Console.WriteLine($"=> {result}");
-                            }
+                            // Evaluate script forms for side-effects; don't echo like REPL
+                            var _ = evaluator.Eval(expr);
                         }
                     }
                     catch (Exception ex)
@@ -126,12 +124,15 @@
 
                     if (traceParse && expr is LispList list)
                     {
-                        PrettyPrintList(list, "[parse]");
+                        Console.ForegroundColor = ConsoleColor.DarkGray;
+                        Console.WriteLine("[parse repl]");
+                        Console.ResetColor();
+                        evaluator.PrettyPrintForm(expr);
                     }
 
                     var result = evaluator.Eval(expr);
 
-                    // Always show the result, even if it is nil
+                    // Always show the result in the interactive REPL, even if it is nil
                     Console.WriteLine($"=> {result}");
                 }
                 catch (Exception ex)
@@ -182,36 +183,6 @@
             }
 
             Console.ResetColor();
-        }
-
-        private static void PrettyPrintList(LispList list, string prefix)
-        {
-            void PrintValue(LispValue value, int indent)
-            {
-                var indentStr = new string(' ', indent * 2);
-                switch (value)
-                {
-                    case LispList inner:
-                        Console.ForegroundColor = ConsoleColor.DarkGray;
-                        Console.WriteLine($"{prefix} {indentStr}(");
-                        Console.ResetColor();
-                        foreach (var e in inner.Elements)
-                        {
-                            PrintValue(e, indent + 1);
-                        }
-                        Console.ForegroundColor = ConsoleColor.DarkGray;
-                        Console.WriteLine($"{prefix} {indentStr})");
-                        Console.ResetColor();
-                        break;
-                    default:
-                        Console.ForegroundColor = ConsoleColor.DarkGray;
-                        Console.WriteLine($"{prefix} {indentStr}{value}");
-                        Console.ResetColor();
-                        break;
-                }
-            }
-
-            PrintValue(list, 0);
         }
     }
 }
