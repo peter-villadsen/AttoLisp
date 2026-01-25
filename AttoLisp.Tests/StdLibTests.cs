@@ -175,5 +175,58 @@ namespace AttoLisp.Tests
             var result = Eval("(xor nil nil)");
             Assert.False(((LispBoolean)result).Value);
         }
+
+        [Fact]
+        public void Sqrt_Works()
+        {
+            var r = Eval("(sqrt 9)");
+            Assert.IsType<LispDecimal>(r);
+            Assert.Equal(3m, ((LispDecimal)r).Value);
+        }
+
+        [Fact]
+        public void Exp_And_Log_Work()
+        {
+            // exp(0) = 1
+            var e0 = Eval("(exp 0)");
+            Assert.IsType<LispDecimal>(e0);
+            Assert.Equal(1m, ((LispDecimal)e0).Value);
+
+            // log(e^1) ~= 1 using base-e and base-10 variants not strictly tested here,
+            // but we verify log and exp are at least callable.
+            var e1 = Eval("(exp 1)");
+            Assert.IsType<LispDecimal>(e1);
+
+            var l10 = Eval("(log 10)");
+            Assert.IsType<LispDecimal>(l10);
+        }
+
+        [Fact]
+        public void Trig_Functions_Work()
+        {
+            var s0 = Eval("(sin 0)");
+            Assert.IsType<LispDecimal>(s0);
+            Assert.Equal(0m, ((LispDecimal)s0).Value);
+
+            var c0 = Eval("(cos 0)");
+            Assert.IsType<LispDecimal>(c0);
+            Assert.Equal(1m, ((LispDecimal)c0).Value);
+
+            var t0 = Eval("(tan 0)");
+            Assert.IsType<LispDecimal>(t0);
+            Assert.Equal(0m, ((LispDecimal)t0).Value);
+        }
+
+        [Fact]
+        public void Min_Max_Work()
+        {
+            var mn = Eval("(min 3 1 4 2)");
+            Assert.IsType<LispInteger>(mn);
+            Assert.Equal(1, (int)((LispInteger)mn).Value);
+
+            var mx = Eval("(max 3 1 4 2)");
+            Assert.IsType<LispInteger>(mx);
+            Assert.Equal(4, (int)((LispInteger)mx).Value);
+        }
     }
 }

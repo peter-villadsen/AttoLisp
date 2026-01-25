@@ -67,11 +67,29 @@ This is useful for understanding how expressions are evaluated and for debugging
 - `(- args...)` - Subtraction
 - `(* args...)` - Multiplication
 - `(/ args...)` - Division
+- `(sqrt x)`   - Square root (non-negative x)
+- `(exp x)`    - Exponential e^x
+- `(log x [base])` - Natural or base-specific logarithm
+- `(min a b ...)`  - Minimum of arguments
+- `(max a b ...)  - Maximum of arguments
+
+### Trigonometry
+- `(sin x)` - Sine (x in radians)
+- `(cos x)` - Cosine (x in radians)
+- `(tan x)` - Tangent (x in radians)
 
 ### Comparison
-- `(= a b ...)` - Equality
-- `(< a b ...)` - Less than
-- `(> a b ...)` - Greater than
+- `(= a b ...)`  - Equality
+- `(< a b ...)`  - Less than (chained)
+- `(> a b ...)`  - Greater than (chained)
+- `(<= a b ...)` - Less than or equal (chained)
+- `(>= a b ...)` - Greater than or equal (chained)
+
+```lisp
+(<= 1 2 2)      ; => t
+(>= 3 3 2)      ; => t
+(<= 2 1)        ; => nil
+```
 
 ### Strings
 - `(concat args...)` - Concatenate strings
@@ -136,4 +154,15 @@ This is useful for understanding how expressions are evaluated and for debugging
 - Macro support
 - Bytecode compilation
 - Native code generation
-– Named and optional parameters as in Common lisp
+- Named and optional parameters as in Common Lisp
+
+### Planned Mathematical Functions (Common Lisp style)
+
+In addition to the current `+`, `-`, `*`, `/`, `=`, `<`, and `>`, future versions may add:
+
+- `sin`, `cos`, `tan`, and other trigonometric functions
+- `floor`, `ceiling`, `truncate`, `round`
+- `mod`, `rem`
+
+- `gcd`, `lcm`
+- A richer numeric tower (rationals, big integers, complex numbers)

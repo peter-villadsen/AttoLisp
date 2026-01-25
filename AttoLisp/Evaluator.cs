@@ -550,6 +550,114 @@ namespace AttoLisp
                     return sym;
                 throw new Exception("symbol expects a string argument");
             }));
+
+            // Trigonometric and math functions
+            _globalEnv.Define("sin", new LispFunction("sin", args =>
+            {
+                if (args.Count != 1) throw new Exception("sin expects exactly one argument");
+                var x = (double)ToDecimal(args[0]);
+                return new LispDecimal((decimal)Math.Sin(x));
+            }));
+
+            _globalEnv.Define("cos", new LispFunction("cos", args =>
+            {
+                if (args.Count != 1) throw new Exception("cos expects exactly one argument");
+                var x = (double)ToDecimal(args[0]);
+                return new LispDecimal((decimal)Math.Cos(x));
+            }));
+
+            _globalEnv.Define("tan", new LispFunction("tan", args =>
+            {
+                if (args.Count != 1) throw new Exception("tan expects exactly one argument");
+                var x = (double)ToDecimal(args[0]);
+                return new LispDecimal((decimal)Math.Tan(x));
+            }));
+
+            _globalEnv.Define("sqrt", new LispFunction("sqrt", args =>
+            {
+                if (args.Count != 1) throw new Exception("sqrt expects exactly one argument");
+                var x = ToDecimal(args[0]);
+                if (x < 0m) throw new Exception("sqrt domain error: negative input");
+                return new LispDecimal((decimal)Math.Sqrt((double)x));
+            }));
+
+            _globalEnv.Define("exp", new LispFunction("exp", args =>
+            {
+                if (args.Count != 1) throw new Exception("exp expects exactly one argument");
+                var x = (double)ToDecimal(args[0]);
+                return new LispDecimal((decimal)Math.Exp(x));
+            }));
+
+            _globalEnv.Define("log", new LispFunction("log", args =>
+            {
+                if (args.Count == 1)
+                {
+                    var x = ToDecimal(args[0]);
+                    if (x <= 0m) throw new Exception("log domain error: non-positive input");
+                    return new LispDecimal((decimal)Math.Log((double)x));
+                }
+                if (args.Count == 2)
+                {
+                    var x = ToDecimal(args[0]);
+                    var @base = ToDecimal(args[1]);
+                    if (x <= 0m || @base <= 0m || @base == 1m)
+                        throw new Exception("log domain error: invalid base or input");
+                    return new LispDecimal((decimal)(Math.Log((double)x, (double)@base)));
+                }
+                throw new Exception("log expects one or two arguments");
+            }));
+
+            _globalEnv.Define("min", new LispFunction("min", args =>
+            {
+                if (args.Count == 0) throw new Exception("min expects at least one argument");
+                bool anyDecimal = args.Any(a => a is LispDecimal);
+                if (anyDecimal)
+                {
+                    decimal m = ToDecimal(args[0]);
+                    for (int i = 1; i < args.Count; i++)
+                    {
+                        var v = ToDecimal(args[i]);
+                        if (v < m) m = v;
+                    }
+                    return new LispDecimal(m);
+                }
+                else
+                {
+                    var m = ToBigInt(args[0]);
+                    for (int i = 1; i < args.Count; i++)
+                    {
+                        var v = ToBigInt(args[i]);
+                        if (v < m) m = v;
+                    }
+                    return new LispInteger(m);
+                }
+            }));
+
+            _globalEnv.Define("max", new LispFunction("max", args =>
+            {
+                if (args.Count == 0) throw new Exception("max expects at least one argument");
+                bool anyDecimal = args.Any(a => a is LispDecimal);
+                if (anyDecimal)
+                {
+                    decimal m = ToDecimal(args[0]);
+                    for (int i = 1; i < args.Count; i++)
+                    {
+                        var v = ToDecimal(args[i]);
+                        if (v > m) m = v;
+                    }
+                    return new LispDecimal(m);
+                }
+                else
+                {
+                    var m = ToBigInt(args[0]);
+                    for (int i = 1; i < args.Count; i++)
+                    {
+                        var v = ToBigInt(args[i]);
+                        if (v > m) m = v;
+                    }
+                    return new LispInteger(m);
+                }
+            }));
         }
 
         private bool AreEqual(LispValue a, LispValue b)
