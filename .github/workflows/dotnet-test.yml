@@ -5,11 +5,12 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-  workflow_dispatch: 
+  workflow_dispatch:
+
 permissions:
   contents: read
   checks: write
-  
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -36,13 +37,14 @@ jobs:
             /p:CollectCoverage=true \
             /p:CoverletOutput=coverage/coverage.cobertura.xml \
             /p:CoverletOutputFormat=cobertura
-            - name: Upload test results & coverage artifacts
-              uses: actions/upload-artifact@v4
-              with:
-                name: test-artifacts
-                path: |
-                  AttoLisp.Tests/TestResults/**/test_results.trx
-                  coverage/**
+
+      - name: Upload test results & coverage artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-artifacts
+          path: |
+            AttoLisp.Tests/TestResults/**/test_results.trx
+            coverage/**
 
       - name: Publish test results with annotations
         uses: dorny/test-reporter@v1
@@ -53,7 +55,7 @@ jobs:
           path: AttoLisp.Tests/TestResults/**/test_results.trx
           reporter: dotnet-trx
           fail-on-error: false
-    
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
@@ -72,7 +74,7 @@ jobs:
             -reports:coverage/coverage.cobertura.xml \
             -targetdir:coverage/report \
             -reporttypes:Html
-            
+
       - name: Upload HTML coverage report artifact
         uses: actions/upload-artifact@v4
         with:
