@@ -80,6 +80,16 @@
 
                         foreach (var expr in exprs)
                         {
+                            if (traceParse)
+                            {
+                                // When parse tracing is enabled, pretty-print
+                                // each top-level form from script files.
+                                Console.ForegroundColor = ConsoleColor.DarkGray;
+                                Console.WriteLine($"[parse {Path.GetFileName(path)}]");
+                                Console.ResetColor();
+                                evaluator.PrettyPrintForm(expr);
+                            }
+
                             // Evaluate script forms for side-effects; don't echo like REPL
                             var _ = evaluator.Eval(expr);
                         }
