@@ -44,6 +44,13 @@
     ((= (car args) 0) t)
     (else (has-zero? (cdr args)))))
 
+; Helper: get the first operand safely (returns nil if not available)
+(define first-op (expr)
+  (let ((ops (operands expr)))
+    (if (empty? ops)
+        nil
+        (car ops))))
+
 ; Main simplification function with recursive descent
 (define simplify-expr (expr)
   (cond
@@ -53,50 +60,50 @@
     ; Math function identity values
     ; sin(0) => 0
     ((and (= (operator expr) 'sin)
-          (= (car (operands expr)) 0))
+          (= (first-op expr) 0))
      0)
     
     ; cos(0) => 1
     ((and (= (operator expr) 'cos)
-          (= (car (operands expr)) 0))
+          (= (first-op expr) 0))
      1)
     
     ; tan(0) => 0
     ((and (= (operator expr) 'tan)
-          (= (car (operands expr)) 0))
+          (= (first-op expr) 0))
      0)
     
     ; exp(0) => 1
     ((and (= (operator expr) 'exp)
-          (= (car (operands expr)) 0))
+          (= (first-op expr) 0))
      1)
     
     ; log(1) => 0
     ((and (= (operator expr) 'log)
-          (= (car (operands expr)) 1))
+          (= (first-op expr) 1))
      0)
     
     ; sqrt(0) => 0
     ((and (= (operator expr) 'sqrt)
-          (= (car (operands expr)) 0))
+          (= (first-op expr) 0))
      0)
     
     ; sqrt(1) => 1
     ((and (= (operator expr) 'sqrt)
-          (= (car (operands expr)) 1))
+          (= (first-op expr) 1))
      1)
     
     ; Inverse operations: log(exp(x)) => x
     ((and (= (operator expr) 'log)
-          (list? (car (operands expr)))
-          (= (operator (car (operands expr))) 'exp))
-     (car (operands (car (operands expr)))))
+          (list? (first-op expr))
+          (= (operator (first-op expr)) 'exp))
+     (first-op (first-op expr)))
     
     ; Inverse operations: exp(log(x)) => x
     ((and (= (operator expr) 'exp)
-          (list? (car (operands expr)))
-          (= (operator (car (operands expr))) 'log))
-     (car (operands (car (operands expr)))))
+          (list? (first-op expr))
+          (= (operator (first-op expr)) 'log))
+     (first-op (first-op expr)))
     
     ; Handle addition: (+ e1 0 e2) -> (+ e1 e2)
     ; First recursively simplify operands
@@ -159,7 +166,7 @@
          ; Reciprocal: keep as-is
          ((= (length simplified-ops) 1) (cons '/ simplified-ops))
          ; Binary: if second arg is 1, return first arg
-         ((and (= (length simplified-ops) 2) 
+         ((and (= (length simplified-ops) 2)
                (= (car (cdr simplified-ops)) 1))
           (car simplified-ops))
          ; Otherwise keep as-is

@@ -471,47 +471,7 @@ namespace AttoLisp
                 if (args.Count != 1) throw new Exception("not expects exactly one argument");
                 return IsTruthy(args[0]) ? LispBoolean.False : LispBoolean.True;
             }));
-            _globalEnv.Define("and", new LispFunction("and", args =>
-            {
-                // (and a b c ...) evaluates left-to-right and short-circuits on nil
-                if (args.Count == 0)
-                {
-                    // With zero arguments, (and) returns T
-                    return LispBoolean.True;
-                }
-
-                LispValue last = LispBoolean.True;
-                foreach (var arg in args)
-                {
-                    if (!IsTruthy(arg))
-                    {
-                        // As soon as one argument evaluates to NIL, return NIL
-                        return LispNil.Instance;
-                    }
-                    last = arg;
-                }
-
-                // All arguments were non-nil; return the value of the last expression
-                return last;
-            }));
-            _globalEnv.Define("or", new LispFunction("or", args =>
-            {
-                // (or a b c ...) evaluates left-to-right and returns first truthy value or nil
-                if (args.Count == 0)
-                {
-                    return LispNil.Instance;
-                }
-
-                foreach (var arg in args)
-                {
-                    if (IsTruthy(arg))
-                    {
-                        return arg;
-                    }
-                }
-
-                return LispNil.Instance;
-            }));
+            
             _globalEnv.Define("xor", new LispFunction("xor", args =>
             {
                 if (args.Count != 2) throw new Exception("xor expects exactly two arguments");
@@ -833,6 +793,12 @@ namespace AttoLisp
                     case "if":
                         return EvalIf(list, env);
 
+                    case "and":
+                        return EvalAnd(list, env);
+
+                    case "or":
+                        return EvalOr(list, env);
+
                     case "define":
                         return EvalDefine(list, env);
 
@@ -889,6 +855,39 @@ namespace AttoLisp
             {
                 return LispNil.Instance;
             }
+        }
+
+        private LispValue EvalAnd(LispList list, Environment env)
+        {
+            // (and) => t
+            // (and e1 e2 ...) => evaluates left-to-right, short-circuits on first nil/false
+            if (list.Elements.Count == 1)
+                return LispBoolean.True;
+
+            LispValue result = LispBoolean.True;
+            for (int i = 1; i < list.Elements.Count; i++)
+            {
+                result = Eval(list.Elements[i], env);
+                if (!IsTruthy(result))
+                    return LispNil.Instance;
+            }
+            return result;
+        }
+
+        private LispValue EvalOr(LispList list, Environment env)
+        {
+            // (or) => nil
+            // (or e1 e2 ...) => evaluates left-to-right, returns first truthy value or nil
+            if (list.Elements.Count == 1)
+                return LispNil.Instance;
+
+            for (int i = 1; i < list.Elements.Count; i++)
+            {
+                var result = Eval(list.Elements[i], env);
+                if (IsTruthy(result))
+                    return result;
+            }
+            return LispNil.Instance;
         }
 
         // let: evaluates all binding values in the outer environment, then
