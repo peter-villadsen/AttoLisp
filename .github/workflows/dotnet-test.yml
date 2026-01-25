@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch: 
+permissions:
+  contents: read
+  checks: write
+  
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -44,12 +48,13 @@ jobs:
       - name: Publish test results with annotations
         uses: dorny/test-reporter@v1
         if: always()
+        continue-on-error: true
         with:
           name: dotnet-tests
           path: AttoLisp.Tests/TestResults/**/test_results.trx
           reporter: dotnet-trx
           fail-on-error: false
-
+    
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
