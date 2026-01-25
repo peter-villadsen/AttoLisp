@@ -438,6 +438,22 @@ namespace AttoLisp
                 return LispBoolean.False;
             }));
 
+            // Type predicate: list?
+            _globalEnv.Define("list?", new LispFunction("list?", args =>
+            {
+                if (args.Count != 1)
+                    throw new Exception("list? expects exactly one argument");
+                return args[0] is LispList ? LispBoolean.True : LispBoolean.False;
+            }));
+
+            // Type predicate: number?
+            _globalEnv.Define("number?", new LispFunction("number?", args =>
+            {
+                if (args.Count != 1)
+                    throw new Exception("number? expects exactly one argument");
+                return args[0] is LispInteger or LispDecimal ? LispBoolean.True : LispBoolean.False;
+            }));
+
             // Special forms and utility
             _globalEnv.Define("print", new LispFunction("print", args =>
             {

@@ -7,6 +7,7 @@
             // Parse command line switches and positional script files
             bool traceEval = false;
             bool traceParse = false;
+            bool enterRepl = false;
             var scriptPaths = new List<string>();
 
             if (args != null)
@@ -23,12 +24,22 @@
                         case "-tp":
                             traceParse = true;
                             break;
+                        case "--repl":
+                        case "-r":
+                            enterRepl = true;
+                            break;
                         default:
                             // treat anything else as a script path
                             scriptPaths.Add(arg);
                             break;
                     }
                 }
+            }
+
+            // If no scripts and no --repl flag, default to REPL mode
+            if (scriptPaths.Count == 0 && !enterRepl)
+            {
+                enterRepl = true;
             }
 
             Console.WriteLine("AttoLisp Interpreter v0.2");
@@ -100,6 +111,13 @@
                         WriteFriendlyParseError(displayName, ex);
                     }
                 }
+                
+                if (!enterRepl)
+                {
+                    // Scripts executed, no REPL requested, exit
+                    return;
+                }
+                
                 Console.WriteLine();
                 Console.WriteLine("Entering REPL...");
             }

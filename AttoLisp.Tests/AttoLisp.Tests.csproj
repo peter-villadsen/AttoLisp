@@ -29,6 +29,16 @@
     <None Include="..\AttoLisp\ParseExpression.al" Link="ParseExpression.al">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+	<None Include="..\AttoLisp\PrintExpression.al" Link="PrintExpression.al">
+	  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	</None>
+	<None Include="..\AttoLisp\SimplifyExpression.al" Link="SimplifyExpression.al">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	</None>
+	<None Include="..\AttoLisp\DifferentiateExpression.al" Link="DifferentiateExpression.al">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	</None>
+
   </ItemGroup>
 
 </Project>

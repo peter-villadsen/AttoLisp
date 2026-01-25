@@ -2,7 +2,7 @@
   "profiles": {
     "AttoLisp": {
       "commandName": "Project",
-      "commandLineArgs": "  C:\\Users\\peter\\OneDrive\\Desktop\\AttoLisp\\AttoLisp\\ParseExpression.al         --traceParse --trace"
+      "commandLineArgs": "C:\\Users\\peter\\OneDrive\\Desktop\\AttoLisp\\AttoLisp\\ParseExpression.al  C:\\Users\\peter\\OneDrive\\Desktop\\AttoLisp\\AttoLisp\\PrintExpression.al  C:\\Users\\peter\\OneDrive\\Desktop\\AttoLisp\\AttoLisp\\SimplifyExpression.al  C:\\Users\\peter\\OneDrive\\Desktop\\AttoLisp\\AttoLisp\\DifferentiateExpression.al --traceParse --trace"
     }
   }
 }
