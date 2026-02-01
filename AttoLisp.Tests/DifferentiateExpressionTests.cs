@@ -302,5 +302,64 @@ namespace AttoLisp.Tests
             Assert.Equal("exp", ((LispSymbol)list.Elements[0]).Name);
             Assert.Equal("x", ((LispSymbol)list.Elements[1]).Name);
         }
+
+        [Fact]
+        public void Differentiates_Power_x_squared_WrtX()
+        {
+            // d/dx(x^2) = (* 2 (* (^ x (- 2 1)) 1))
+            var r = Eval("(differentiate '(^ x 2) 'x)");
+            Assert.IsType<LispList>(r);
+            var list = (LispList)r;
+            Assert.Equal("*", ((LispSymbol)list.Elements[0]).Name);
+            Assert.Equal(2, (int)((LispInteger)list.Elements[1]).Value);
+        }
+
+        [Fact]
+        public void Differentiates_Power_x_cubed_WrtX()
+        {
+            // d/dx(x^3) = (* 3 (* (^ x (- 3 1)) 1))
+            var r = Eval("(differentiate '(^ x 3) 'x)");
+            Assert.IsType<LispList>(r);
+            var list = (LispList)r;
+            Assert.Equal("*", ((LispSymbol)list.Elements[0]).Name);
+            Assert.Equal(3, (int)((LispInteger)list.Elements[1]).Value);
+        }
+
+        [Fact]
+        public void Differentiates_Power_x_squared_WrtX_Simplified()
+        {
+            // d/dx(x^2) simplified = (* 2 x)
+            var r = Eval("(simplify-expr (differentiate '(^ x 2) 'x))");
+            Assert.IsType<LispList>(r);
+            var list = (LispList)r;
+            Assert.Equal("*", ((LispSymbol)list.Elements[0]).Name);
+            Assert.Equal(2, (int)((LispInteger)list.Elements[1]).Value);
+            Assert.Equal("x", ((LispSymbol)list.Elements[2]).Name);
+        }
+
+        [Fact]
+        public void Differentiates_Power_x_plus_1_squared_WrtX()
+        {
+            // d/dx((x+1)^2) = (* 2 (* (^ (+ x 1) (- 2 1)) (+ 1 0)))
+            var r = Eval("(differentiate '(^ (+ x 1) 2) 'x)");
+            Assert.IsType<LispList>(r);
+            var list = (LispList)r;
+            Assert.Equal("*", ((LispSymbol)list.Elements[0]).Name);
+            Assert.Equal(2, (int)((LispInteger)list.Elements[1]).Value);
+        }
+
+        [Fact]
+        public void Differentiates_Power_x_plus_1_squared_WrtX_Simplified()
+        {
+            // d/dx((x+1)^2) simplified = (* 2 (+ x 1))
+            var r = Eval("(simplify-expr (differentiate '(^ (+ x 1) 2) 'x))");
+            Assert.IsType<LispList>(r);
+            var list = (LispList)r;
+            Assert.Equal("*", ((LispSymbol)list.Elements[0]).Name);
+            Assert.Equal(2, (int)((LispInteger)list.Elements[1]).Value);
+            // Third element should be (+ x 1)
+            var inner = (LispList)list.Elements[2];
+            Assert.Equal("+", ((LispSymbol)inner.Elements[0]).Name);
+        }
     }
 }

@@ -42,6 +42,15 @@
     ; In both cases, derivative is 0
     ((not (list? expr)) 0)
     
+    ; Power rule: d/dx(u^n) = n * u^(n-1) * u'
+    ; This works for both constant and variable exponents (using generalized power rule)
+    ((= (operator expr) '^)
+     (let ((u (first-operand expr))
+           (n (second-operand expr)))
+       (let ((du (differentiate u var)))
+         ; General case: d/dx(u^n) = n * u^(n-1) * du
+         (list '* n (list '* (list '^ u (list '- n 1)) du)))))
+    
     ; Product rule: d/dx(u*v) = u'*v + u*v'
     ((= (operator expr) '*)
      (let ((u (first-operand expr))
@@ -58,7 +67,7 @@
              (dv (differentiate v var)))
          (list '/ 
                (list '- (list '* du v) (list '* u dv))
-               (list '* v v)))))
+               (list '^ v 2)))))
     
     ; Sum rule: d/dx(u+v) = u' + v'
     ((= (operator expr) '+)
@@ -92,7 +101,7 @@
     ((= (operator expr) 'tan)
      (let ((u (first-operand expr)))
        (let ((du (differentiate u var)))
-         (list '* (list '/ 1 (list '* (list 'cos u) (list 'cos u))) du))))
+         (list '* (list '/ 1 (list '^ (list 'cos u) 2)) du))))
     
     ; Chain rule for exp: d/dx(exp(u)) = exp(u) * u'
     ((= (operator expr) 'exp)
@@ -107,6 +116,7 @@
          (list '* (list '/ 1 u) du))))
     
     ; Chain rule for sqrt: d/dx(sqrt(u)) = (1/(2*sqrt(u))) * u'
+    ; Can also be written as: d/dx(u^(1/2)) = (1/2) * u^(-1/2) * u'
     ((= (operator expr) 'sqrt)
      (let ((u (first-operand expr)))
        (let ((du (differentiate u var)))
@@ -119,11 +129,14 @@
 ; (differentiate '(* 2 x) 'x)  => (+ (* 0 x) (* 2 1))
 ; (differentiate '(* x x) 'x)  => (+ (* 1 x) (* x 1))
 ; (differentiate '(+ x 5) 'x)  => (+ 1 0)
-; (differentiate '(/ x 2) 'x)  => (/ (- (* 1 2) (* x 0)) (* 2 2))
-; (differentiate '(/ (* x x) x) 'x)  => (/ (- (* (+ (* 1 x) (* x 1)) x) (* (* x x) 1)) (* x x))
+; (differentiate '(/ x 2) 'x)  => (/ (- (* 1 2) (* x 0)) (^ 2 2))
+; (differentiate '(^ x 2) 'x)  => (* 2 (* (^ x (- 2 1)) 1))
+; (differentiate '(^ x 3) 'x)  => (* 3 (* (^ x (- 3 1)) 1))
+; (differentiate '(^ (+ x 1) 2) 'x) => (* 2 (* (^ (+ x 1) (- 2 1)) (+ 1 0)))
+; (differentiate '(/ (* x x) x) 'x)  => (/ (- (* (+ (* 1 x) (* x 1)) x) (* (* x x) 1)) (^ x 2))
 ; (differentiate '(sin x) 'x)  => (* (cos x) 1)
 ; (differentiate '(cos x) 'x)  => (* (- 0 (sin x)) 1)
-; (differentiate '(tan x) 'x)  => (* (/ 1 (* (cos x) (cos x))) 1)
+; (differentiate '(tan x) 'x)  => (* (/ 1 (^ (cos x) 2)) 1)
 ; (differentiate '(exp x) 'x)  => (* (exp x) 1)
 ; (differentiate '(log x) 'x)  => (* (/ 1 x) 1)
 ; (differentiate '(sqrt x) 'x) => (* (/ 1 (* 2 (sqrt x))) 1)
